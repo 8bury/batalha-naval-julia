@@ -7,3 +7,4 @@ using BatalhaNaval
 end
 
 include("configuration_test.jl")
+include("positioning_test.jl")

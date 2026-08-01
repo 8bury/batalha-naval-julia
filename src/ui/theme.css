@@ -146,6 +146,78 @@ checkbutton check {
 }
 
 checkbutton check:checked {
-    background: #0ea5e9;
-    border-color: #38bdf8;
+    background: #5b95b0;
+    border-color: #70aac3;
+}
+
+.board-header {
+    color: #9db8c4;
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 22px;
+    min-height: 22px;
+}
+
+button.board-cell {
+    min-width: 42px;
+    min-height: 42px;
+    padding: 0;
+    border-radius: 4px;
+    background-image: none;
+    box-shadow: none;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+button.cell-empty {
+    background: #0a2735;
+    border: 1px solid #2d5868;
+    color: #78a5b5;
+}
+
+button.cell-empty:hover {
+    background: #123b4c;
+    border-color: #5b95b0;
+}
+
+button.cell-occupied {
+    background: #5b95b0;
+    border: 1px solid #8dc4d5;
+    color: #07141d;
+}
+
+button.cell-preview-valid {
+    background: #245a58;
+    border: 2px solid #72c5a5;
+    color: #c8f2df;
+}
+
+button.cell-preview-invalid {
+    background: #5b2f3a;
+    border: 2px solid #e09a9f;
+    color: #ffd5d7;
+}
+
+button.selected-action {
+    background: #245a58;
+    border-color: #72c5a5;
+    color: #d5f4e5;
+}
+
+.placement-status {
+    min-height: 22px;
+    color: #c7d9df;
+}
+
+.placement-status.placement-valid {
+    color: #8bd5b4;
+}
+
+.placement-status.placement-invalid {
+    color: #f0a4a7;
+}
+
+.board-legend {
+    color: #8eaab6;
+    font-size: 13px;
 }

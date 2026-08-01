@@ -76,8 +76,8 @@ function information_page(window, title, body)
     return page
 end
 
-function ready_page(window, configuration::MatchConfiguration)
-    option = only(filter(candidate -> candidate.kind == configuration.map, MAPS))
+function ready_page(window, configuration::MatchConfiguration, board::PositioningBoard)
+    option = map_option(configuration.map)
     terrain = configuration.special_terrain ? "habilitados" : "desabilitados"
     summary = "Jogador: $(configuration.player_name)\n" *
               "Mapa: $(option.name) ($(option.dimension)×$(option.dimension))\n" *
@@ -91,7 +91,7 @@ function ready_page(window, configuration::MatchConfiguration)
     push!(
         page,
         styled!(
-            GtkLabel("O posicionamento da frota será implementado na próxima etapa."; wrap=true, xalign=0),
+            GtkLabel("A frota foi posicionada e está pronta para a batalha."; wrap=true, xalign=0),
             "muted-card",
         ),
     )
@@ -100,11 +100,304 @@ function ready_page(window, configuration::MatchConfiguration)
         page,
         navigation_button(
             window,
-            "Alterar Configuração",
-            () -> configuration_page(window, configuration.player_name),
+            "Alterar Posicionamento",
+            () -> positioning_page(window, configuration, board),
         ),
     )
     push!(page, navigation_button(window, "Menu Principal", () -> main_menu(window)))
+    return page
+end
+
+function reset_board_cell_style!(button)
+    foreach(
+        css_class -> remove_css_class(button, css_class),
+        ("cell-empty", "cell-occupied", "cell-preview-valid", "cell-preview-invalid"),
+    )
+    return button
+end
+
+function positioning_page(window, configuration::MatchConfiguration)
+    return positioning_page(window, configuration, create_positioning_board(configuration))
+end
+
+function positioning_page(
+    window,
+    configuration::MatchConfiguration,
+    board::PositioningBoard,
+)
+    selected_ship = Ref{Union{Nothing, ShipType}}(nothing)
+    orientation = Ref(HORIZONTAL)
+    preview = Ref{Union{Nothing, PlacementPreview}}(nothing)
+    preview_start = Ref{Union{Nothing, Tuple{Int, Int}}}(nothing)
+
+    page = configure_container!(GtkBox(:v); spacing=14)
+    page.width_request = 1180
+    page.height_request = 680
+    push!(page, title_label("Posicionamento da frota"))
+    push!(
+        page,
+        subtitle_label(
+            "$(configuration.player_name), escolha uma embarcação e clique na casa inicial. " *
+            "Embarcações podem se tocar, mas não podem sair do mapa ou se sobrepor.",
+        ),
+    )
+
+    content = GtkBox(:h)
+    content.spacing = 26
+    content.hexpand = true
+    content.vexpand = true
+    push!(page, content)
+
+    board_column = GtkBox(:v)
+    board_column.spacing = 10
+    board_column.hexpand = true
+    board_column.vexpand = true
+    push!(content, board_column)
+
+    board_grid = GtkGrid()
+    board_grid.row_spacing = 3
+    board_grid.column_spacing = 3
+    board_grid.halign = Gtk4.Align_CENTER
+    board_grid.valign = Gtk4.Align_CENTER
+    push!(board_column, board_grid)
+
+    board_grid[1, 1] = styled!(GtkLabel(""), "board-header")
+    for column in 1:board.dimension
+        column_label = styled!(GtkLabel(string(Char(Int('A') + column - 1))), "board-header")
+        board_grid[column + 1, 1] = column_label
+    end
+
+    cell_buttons = Matrix{Any}(undef, board.dimension, board.dimension)
+    for row in 1:board.dimension
+        row_label = styled!(GtkLabel(string(row)), "board-header")
+        board_grid[1, row + 1] = row_label
+        for column in 1:board.dimension
+            cell_button = styled!(GtkButton("·"), "board-cell", "cell-empty")
+            cell_button.width_request = 42
+            cell_button.height_request = 42
+            cell_button.tooltip_text = "$(Char(Int('A') + column - 1))$row"
+            cell_buttons[row, column] = cell_button
+            board_grid[column + 1, row + 1] = cell_button
+        end
+    end
+
+    status_label = styled!(GtkLabel("Escolha uma embarcação para começar."; wrap=true, xalign=0), "placement-status")
+    push!(board_column, status_label)
+    push!(
+        board_column,
+        styled!(
+            GtkLabel("P = Patrulha   S = Submarino   C = Cruzador"; xalign=0),
+            "board-legend",
+        ),
+    )
+
+    controls = GtkBox(:v)
+    controls.spacing = 12
+    controls.width_request = 300
+    controls.valign = Gtk4.Align_START
+    push!(content, controls)
+
+    push!(controls, field_label("Embarcações disponíveis"))
+    fleet_buttons = Dict{ShipType, Any}()
+    for ship_type in (PATROL, SUBMARINE, CRUISER)
+        ship_button = menu_button(ship_label(ship_type); style="secondary-action")
+        fleet_buttons[ship_type] = ship_button
+        push!(controls, ship_button)
+    end
+
+    orientation_button = menu_button("Orientação: Horizontal"; style="secondary-action")
+    push!(controls, orientation_button)
+
+    confirm_position_button = menu_button("Confirmar Posição"; style="primary-action")
+    confirm_position_button.sensitive = false
+    push!(controls, confirm_position_button)
+
+    clear_button = menu_button("Limpar Tabuleiro"; style="quiet-action")
+    clear_button.halign = Gtk4.Align_START
+    push!(controls, clear_button)
+
+    confirm_fleet_button = menu_button("Confirmar Frota"; style="primary-action")
+    confirm_fleet_button.sensitive = false
+    push!(controls, confirm_fleet_button)
+
+    function set_status!(message; valid=nothing)
+        status_label.label = message
+        foreach(
+            css_class -> remove_css_class(status_label, css_class),
+            ("placement-valid", "placement-invalid"),
+        )
+        if valid === true
+            add_css_class(status_label, "placement-valid")
+        elseif valid === false
+            add_css_class(status_label, "placement-invalid")
+        end
+        return nothing
+    end
+
+    function render_board!()
+        current_preview = preview[]
+        preview_cells = isnothing(current_preview) ? Set{Tuple{Int, Int}}() : Set(current_preview.cells)
+        for row in 1:board.dimension
+            for column in 1:board.dimension
+                cell_button = cell_buttons[row, column]
+                placement = ship_at(board, row, column)
+                reset_board_cell_style!(cell_button)
+                if !isnothing(placement)
+                    cell_button.label = ship_symbol(placement.ship_type)
+                    cell_button.tooltip_text = "$(Char(Int('A') + column - 1))$row — clique para remover"
+                    add_css_class(cell_button, "cell-occupied")
+                elseif (row, column) in preview_cells
+                    cell_button.label = current_preview.valid ? "·" : "×"
+                    cell_button.tooltip_text = current_preview.message
+                    add_css_class(
+                        cell_button,
+                        current_preview.valid ? "cell-preview-valid" : "cell-preview-invalid",
+                    )
+                else
+                    cell_button.label = "·"
+                    cell_button.tooltip_text = "$(Char(Int('A') + column - 1))$row"
+                    add_css_class(cell_button, "cell-empty")
+                end
+            end
+        end
+        return nothing
+    end
+
+    function refresh_controls!()
+        available = available_ships(board)
+        for ship_type in (PATROL, SUBMARINE, CRUISER)
+            ship_button = fleet_buttons[ship_type]
+            remaining = count(candidate -> candidate == ship_type, available)
+            ship_button.label = "$(ship_label(ship_type)) ($remaining)"
+            ship_button.sensitive = remaining > 0
+            remove_css_class(ship_button, "selected-action")
+            if selected_ship[] == ship_type
+                add_css_class(ship_button, "selected-action")
+            end
+        end
+        confirm_position_button.sensitive = !isnothing(preview[]) && preview[].valid
+        confirm_fleet_button.sensitive = all_ships_placed(board)
+        return nothing
+    end
+
+    function show_preview!(row, column)
+        ship_type = selected_ship[]
+        if isnothing(ship_type)
+            set_status!("Escolha uma embarcação antes de selecionar a casa inicial.")
+            return nothing
+        end
+
+        preview_start[] = (row, column)
+        preview[] = preview_placement(board, ship_type, row, column, orientation[])
+        set_status!(preview[].message; valid=preview[].valid)
+        render_board!()
+        refresh_controls!()
+        return nothing
+    end
+
+    function handle_cell_click!(row, column)
+        if !isnothing(ship_at(board, row, column))
+            remove_ship_at!(board, row, column)
+            selected_ship[] = nothing
+            preview[] = nothing
+            preview_start[] = nothing
+            set_status!("Embarcação removida e devolvida à lista.")
+            render_board!()
+            refresh_controls!()
+            return nothing
+        end
+        return show_preview!(row, column)
+    end
+
+    function toggle_orientation!()
+        orientation[] = orientation[] == HORIZONTAL ? VERTICAL : HORIZONTAL
+        orientation_button.label = orientation[] == HORIZONTAL ?
+            "Orientação: Horizontal" :
+            "Orientação: Vertical"
+        if !isnothing(preview_start[])
+            start_row, start_column = preview_start[]
+            show_preview!(start_row, start_column)
+        end
+        return nothing
+    end
+
+    function confirm_position!()
+        ship_type = selected_ship[]
+        start = preview_start[]
+        current_preview = preview[]
+        if isnothing(ship_type) || isnothing(start) || isnothing(current_preview) || !current_preview.valid
+            return nothing
+        end
+
+        start_row, start_column = start
+        if place_ship!(board, ship_type, start_row, start_column, orientation[])
+            remaining = available_ships(board)
+            selected_ship[] = ship_type in remaining ? ship_type : nothing
+            preview[] = nothing
+            preview_start[] = nothing
+            set_status!("$(ship_label(ship_type)) posicionado. Escolha a próxima embarcação.")
+            render_board!()
+            refresh_controls!()
+        end
+        return nothing
+    end
+
+    function clear_positioning!()
+        clear_board!(board)
+        selected_ship[] = nothing
+        preview[] = nothing
+        preview_start[] = nothing
+        set_status!("Tabuleiro limpo. A configuração do mapa foi preservada.")
+        render_board!()
+        refresh_controls!()
+        return nothing
+    end
+
+    for ship_type in (PATROL, SUBMARINE, CRUISER)
+        signal_connect(fleet_buttons[ship_type], "clicked") do _
+            selected_ship[] = ship_type
+            preview[] = nothing
+            preview_start[] = nothing
+            set_status!("$(ship_label(ship_type)) selecionado. Clique na casa inicial.")
+            render_board!()
+            refresh_controls!()
+            return nothing
+        end
+    end
+
+    for row in 1:board.dimension
+        for column in 1:board.dimension
+            let row = row, column = column
+                signal_connect(cell_buttons[row, column], "clicked") do _
+                    handle_cell_click!(row, column)
+                    return nothing
+                end
+            end
+        end
+    end
+
+    signal_connect(orientation_button, "clicked") do _
+        toggle_orientation!()
+        return nothing
+    end
+    signal_connect(confirm_position_button, "clicked") do _
+        confirm_position!()
+        return nothing
+    end
+    signal_connect(clear_button, "clicked") do _
+        clear_positioning!()
+        return nothing
+    end
+    signal_connect(confirm_fleet_button, "clicked") do _
+        if all_ships_placed(board)
+            window[] = ready_page(window, configuration, board)
+        end
+        return nothing
+    end
+
+    render_board!()
+    refresh_controls!()
+    push!(page, navigation_button(window, "Voltar à Configuração", () -> configuration_page(window, configuration.player_name)))
     return page
 end
 
@@ -168,7 +461,7 @@ function configuration_page(window, player_name)
             selected_map.kind;
             special_terrain=terrain_toggle.active,
         )
-        window[] = ready_page(window, configuration)
+        window[] = positioning_page(window, configuration)
         return nothing
     end
     push!(page, continue_button)
