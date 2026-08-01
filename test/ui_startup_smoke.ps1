@@ -43,6 +43,12 @@ try {
         throw "O aplicativo não criou a janela Batalha Naval em $TimeoutSeconds segundos."
     }
 
+    Start-Sleep -Seconds 1
+    $applicationProcess.Refresh()
+    if (-not $applicationProcess.Responding) {
+        throw "A janela Batalha Naval abriu, mas o Windows a marcou como não respondendo."
+    }
+
     if ($gdbusFailureDetected) {
         throw "A inicialização deixou um processo gdbus com erro de DLL."
     }

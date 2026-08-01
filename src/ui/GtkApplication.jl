@@ -254,8 +254,12 @@ function run_application()
 
     closed = Condition()
     window = create_window(() -> notify(closed))
-    @async Gtk4.GLib.glib_main()
-    wait(closed)
+    Gtk4.GLib.start_main_loop(true)
+    try
+        wait(closed)
+    finally
+        Gtk4.GLib.stop_main_loop(true)
+    end
     return window
 end
 
