@@ -162,26 +162,27 @@ function main_menu(window)
 
     exit_button = menu_button("Sair")
     signal_connect(exit_button, "clicked") do _
-        destroy(window)
+        close(window)
     end
     push!(page, exit_button)
     return page
 end
 
-function activate(app)
-    window = GtkApplicationWindow(app, "Batalha Naval")
-    window.default_width = 1280
-    window.default_height = 800
+function create_window()
+    window = GtkWindow("Batalha Naval", 1280, 800)
     window.resizable = true
     window[] = main_menu(window)
     show(window)
-    return nothing
+    return window
 end
 
 function run_application()
-    app = Gtk4.GtkApplication("br.edu.batalhanaval.app")
-    Gtk4.signal_connect(activate, app, :activate)
-    return Gtk4.run(app)
+    window = create_window()
+    if !isinteractive()
+        @async Gtk4.GLib.glib_main()
+        Gtk4.GLib.waitforsignal(window, :close_request)
+    end
+    return window
 end
 
 end

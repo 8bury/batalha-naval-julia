@@ -14,8 +14,10 @@ As bibliotecas Julia e os binários do Gtk são restaurados automaticamente pelo
 No Windows, abra o PowerShell na pasta do projeto:
 
 ```powershell
-.\run.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
 ```
+
+O parâmetro `ExecutionPolicy` vale somente para esse processo e não altera a configuração do Windows.
 
 No Arch Linux:
 
