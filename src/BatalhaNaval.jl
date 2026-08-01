@@ -41,6 +41,16 @@ struct MatchConfiguration
     player_name::String
     map::MapKind
     special_terrain::Bool
+
+    function MatchConfiguration(
+        raw_name::AbstractString,
+        map::MapKind,
+        special_terrain::Bool,
+    )
+        validation = validate_player_name(raw_name)
+        validation.valid || throw(ArgumentError(validation.message))
+        return new(validation.normalized, map, special_terrain)
+    end
 end
 
 const MAP_OPTIONS = (
@@ -82,9 +92,7 @@ function create_match_configuration(
     map::MapKind;
     special_terrain::Bool=true,
 )
-    validation = validate_player_name(raw_name)
-    validation.valid || throw(ArgumentError(validation.message))
-    return MatchConfiguration(validation.normalized, map, special_terrain)
+    return MatchConfiguration(raw_name, map, special_terrain)
 end
 
 end

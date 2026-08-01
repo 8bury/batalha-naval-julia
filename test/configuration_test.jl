@@ -37,4 +37,18 @@
         @test configuration.map == PUDDLE
         @test configuration.special_terrain
     end
+
+    @testset "permite desabilitar terrenos especiais" begin
+        configuration = create_match_configuration(
+            "Lúcia 7",
+            LAKE;
+            special_terrain=false,
+        )
+
+        @test !configuration.special_terrain
+    end
+
+    @testset "protege a validação no valor de configuração público" begin
+        @test_throws ArgumentError MatchConfiguration("A@", PUDDLE, true)
+    end
 end

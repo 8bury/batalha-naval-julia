@@ -26,6 +26,14 @@ function menu_button(label)
     return button
 end
 
+function navigation_button(window, label, destination)
+    button = menu_button(label)
+    signal_connect(button, "clicked") do _
+        window[] = destination()
+    end
+    return button
+end
+
 function fleet_text(option::MapOption)
     fleet = option.fleet
     patrol = fleet.patrols == 1 ? "Patrulha" : "Patrulhas"
@@ -39,11 +47,7 @@ function information_page(window, title, body)
     push!(page, title_label(title))
     push!(page, GtkLabel(body; wrap=true, xalign=0))
 
-    back_button = menu_button("Voltar ao Menu")
-    signal_connect(back_button, "clicked") do _
-        window[] = main_menu(window)
-    end
-    push!(page, back_button)
+    push!(page, navigation_button(window, "Voltar ao Menu", () -> main_menu(window)))
     return page
 end
 
@@ -60,29 +64,51 @@ function ready_page(window, configuration::MatchConfiguration)
     push!(page, GtkLabel(summary; wrap=true, xalign=0))
     push!(page, GtkLabel("O posicionamento da frota será implementado na próxima etapa."; wrap=true, xalign=0))
 
-    change_button = menu_button("Alterar Configuração")
-    signal_connect(change_button, "clicked") do _
-        window[] = configuration_page(window; initial_name=configuration.player_name)
-    end
-    push!(page, change_button)
-
-    menu = menu_button("Menu Principal")
-    signal_connect(menu, "clicked") do _
-        window[] = main_menu(window)
-    end
-    push!(page, menu)
+    push!(
+        page,
+        navigation_button(
+            window,
+            "Alterar Configuração",
+            () -> configuration_page(window, configuration.player_name),
+        ),
+    )
+    push!(page, navigation_button(window, "Menu Principal", () -> main_menu(window)))
     return page
 end
 
-function configuration_page(window; initial_name="")
+function name_page(window; initial_name="")
     page = configure_container!(GtkBox(:v))
-    push!(page, title_label("Nova partida"))
+    push!(page, title_label("Identificação do jogador"))
 
     push!(page, GtkLabel("Nome do jogador (2 a 20 caracteres)"; xalign=0))
     name_entry = GtkEntry()
     name_entry.text = initial_name
     name_entry.placeholder_text = "Digite seu nome"
     push!(page, name_entry)
+
+    error_label = GtkLabel(""; wrap=true, xalign=0)
+    push!(page, error_label)
+
+    continue_button = menu_button("Continuar")
+    signal_connect(continue_button, "clicked") do _
+        validation = validate_player_name(name_entry.text)
+        if !validation.valid
+            error_label.label = validation.message
+            return nothing
+        end
+
+        window[] = configuration_page(window, validation.normalized)
+        return nothing
+    end
+    push!(page, continue_button)
+    push!(page, navigation_button(window, "Cancelar", () -> main_menu(window)))
+    return page
+end
+
+function configuration_page(window, player_name)
+    page = configure_container!(GtkBox(:v))
+    push!(page, title_label("Nova partida"))
+    push!(page, GtkLabel("Jogador: $player_name"; xalign=0))
 
     push!(page, GtkLabel("Tamanho do mapa"; xalign=0))
     map_selector = GtkDropDown(["$(option.name) — $(option.dimension)×$(option.dimension)" for option in MAPS])
@@ -99,20 +125,11 @@ function configuration_page(window; initial_name="")
     terrain_toggle.active = true
     push!(page, terrain_toggle)
 
-    error_label = GtkLabel(""; wrap=true, xalign=0)
-    push!(page, error_label)
-
     continue_button = menu_button("Continuar")
     signal_connect(continue_button, "clicked") do _
-        validation = validate_player_name(name_entry.text)
-        if !validation.valid
-            error_label.label = validation.message
-            return nothing
-        end
-
         selected_map = MAPS[Int(map_selector.selected) + 1]
         configuration = create_match_configuration(
-            validation.normalized,
+            player_name,
             selected_map.kind;
             special_terrain=terrain_toggle.active,
         )
@@ -120,13 +137,50 @@ function configuration_page(window; initial_name="")
         return nothing
     end
     push!(page, continue_button)
-
-    back_button = menu_button("Cancelar")
-    signal_connect(back_button, "clicked") do _
-        window[] = main_menu(window)
-    end
-    push!(page, back_button)
+    push!(
+        page,
+        navigation_button(
+            window,
+            "Alterar Nome",
+            () -> name_page(window; initial_name=player_name),
+        ),
+    )
+    push!(page, navigation_button(window, "Cancelar", () -> main_menu(window)))
     return page
+end
+
+function close_dialog(dialog)
+    Gtk4.transient_for(dialog, nothing)
+    destroy(dialog)
+    return nothing
+end
+
+function confirm_exit(window)
+    dialog = GtkWindow(; modal=true, title="Confirmar saída")
+    Gtk4.transient_for(dialog, window)
+
+    content = configure_container!(GtkBox(:v); spacing=12)
+    push!(content, GtkLabel("Deseja realmente sair do Batalha Naval?"; wrap=true))
+    actions = GtkBox(:h)
+    actions.spacing = 12
+    push!(content, actions)
+
+    cancel_button = GtkButton("Cancelar"; hexpand=true)
+    signal_connect(cancel_button, "clicked") do _
+        close_dialog(dialog)
+    end
+    push!(actions, cancel_button)
+
+    exit_button = GtkButton("Sair"; hexpand=true)
+    signal_connect(exit_button, "clicked") do _
+        close_dialog(dialog)
+        close(window)
+    end
+    push!(actions, exit_button)
+
+    dialog[] = content
+    show(dialog)
+    return dialog
 end
 
 function main_menu(window)
@@ -136,7 +190,7 @@ function main_menu(window)
 
     start_button = menu_button("Iniciar Jogo")
     signal_connect(start_button, "clicked") do _
-        window[] = configuration_page(window)
+        window[] = name_page(window)
     end
     push!(page, start_button)
 
@@ -162,7 +216,7 @@ function main_menu(window)
 
     exit_button = menu_button("Sair")
     signal_connect(exit_button, "clicked") do _
-        close(window)
+        confirm_exit(window)
     end
     push!(page, exit_button)
     return page
@@ -171,6 +225,8 @@ end
 function create_window()
     window = GtkWindow("Batalha Naval", 1280, 800)
     window.resizable = true
+    window.width_request = 1000
+    window.height_request = 650
     window[] = main_menu(window)
     show(window)
     return window
