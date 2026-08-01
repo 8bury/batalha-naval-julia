@@ -59,10 +59,10 @@ const MAP_OPTIONS = (
     MapOption(OCEAN, "Oceano", 10, FleetComposition(3, 2, 2)),
 )
 
-"""Return the supported maps in the order shown by the application."""
+"""Retorna os mapas disponíveis na ordem exibida pelo aplicativo."""
 map_options() = collect(MAP_OPTIONS)
 
-"""Normalize and validate a player name without depending on the UI toolkit."""
+"""Normaliza e valida o nome do jogador sem depender da interface gráfica."""
 function validate_player_name(raw_name::AbstractString)
     normalized = strip(raw_name)
     character_count = length(normalized)
@@ -86,7 +86,7 @@ function validate_player_name(raw_name::AbstractString)
     return NameValidation(true, normalized, "")
 end
 
-"""Build the domain value consumed by the next stage of a new match."""
+"""Cria a configuração de domínio consumida pela próxima etapa da partida."""
 function create_match_configuration(
     raw_name::AbstractString,
     map::MapKind;
