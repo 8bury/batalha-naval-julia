@@ -155,7 +155,7 @@ function close_dialog(dialog)
     return nothing
 end
 
-function confirm_exit(window)
+function confirm_exit(on_confirm::Function, window)
     dialog = GtkWindow(; modal=true, title="Confirmar saída")
     Gtk4.transient_for(dialog, window)
 
@@ -174,7 +174,7 @@ function confirm_exit(window)
     exit_button = GtkButton("Sair"; hexpand=true)
     signal_connect(exit_button, "clicked") do _
         close_dialog(dialog)
-        close(window)
+        on_confirm()
     end
     push!(actions, exit_button)
 
@@ -216,28 +216,46 @@ function main_menu(window)
 
     exit_button = menu_button("Sair")
     signal_connect(exit_button, "clicked") do _
-        confirm_exit(window)
+        close(window)
     end
     push!(page, exit_button)
     return page
 end
 
-function create_window()
+function create_window(on_closed::Function=() -> nothing)
     window = GtkWindow("Batalha Naval", 1280, 800)
     window.resizable = true
     window.width_request = 1000
     window.height_request = 650
     window[] = main_menu(window)
+
+    close_confirmed = Ref(false)
+    signal_connect(window, :close_request) do _
+        if close_confirmed[]
+            on_closed()
+            return false
+        end
+
+        confirm_exit(window) do
+            close_confirmed[] = true
+            close(window)
+        end
+        return true
+    end
+
     show(window)
     return window
 end
 
 function run_application()
-    window = create_window()
-    if !isinteractive()
-        @async Gtk4.GLib.glib_main()
-        Gtk4.GLib.waitforsignal(window, :close_request)
+    if isinteractive()
+        return create_window()
     end
+
+    closed = Condition()
+    window = create_window(() -> notify(closed))
+    @async Gtk4.GLib.glib_main()
+    wait(closed)
     return window
 end
 

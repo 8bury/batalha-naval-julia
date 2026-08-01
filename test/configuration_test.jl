@@ -17,6 +17,12 @@
         @test invalid_character.message == "Use apenas letras, números, espaços, hífen e sublinhado."
     end
 
+    @testset "respeita os limites inclusivos de tamanho do nome" begin
+        @test validate_player_name("Lu").valid
+        @test validate_player_name("abcdefghijklmnopqrst").valid
+        @test !validate_player_name("abcdefghijklmnopqrstu").valid
+    end
+
     @testset "oferece os três mapas com suas frotas" begin
         options = map_options()
 
