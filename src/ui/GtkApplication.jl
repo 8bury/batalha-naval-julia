@@ -6,24 +6,48 @@ using BatalhaNaval
 export run_application
 
 const MAPS = map_options()
+const THEME_CSS = read(joinpath(@__DIR__, "theme.css"), String)
 
-function configure_container!(widget; spacing=16)
-    widget.spacing = spacing
-    widget.margin_top = 32
-    widget.margin_bottom = 32
-    widget.margin_start = 48
-    widget.margin_end = 48
+function styled!(widget, classes...)
+    foreach(css_class -> add_css_class(widget, css_class), classes)
     return widget
 end
 
-function title_label(text)
-    return GtkLabel(text; xalign=0)
+function install_theme!(window)
+    provider = GtkCssProvider(THEME_CSS)
+    push!(Gtk4.display(window), provider)
+    return provider
 end
 
-function menu_button(label)
+function configure_container!(widget; spacing=16)
+    widget.spacing = spacing
+    widget.width_request = 660
+    widget.halign = Gtk4.Align_CENTER
+    widget.valign = Gtk4.Align_CENTER
+    widget.vexpand = true
+    widget.margin_top = 36
+    widget.margin_bottom = 36
+    widget.margin_start = 28
+    widget.margin_end = 28
+    return styled!(widget, "surface")
+end
+
+function title_label(text)
+    return styled!(GtkLabel(text; xalign=0), "screen-title")
+end
+
+function subtitle_label(text)
+    return styled!(GtkLabel(text; wrap=true, xalign=0), "subtitle")
+end
+
+function field_label(text)
+    return styled!(GtkLabel(text; xalign=0), "field-label")
+end
+
+function menu_button(label; style="secondary-action")
     button = GtkButton(label)
     button.hexpand = true
-    return button
+    return styled!(button, style)
 end
 
 function navigation_button(window, label, destination)
@@ -44,8 +68,9 @@ end
 
 function information_page(window, title, body)
     page = configure_container!(GtkBox(:v))
+    push!(page, styled!(GtkLabel("CENTRAL DE COMANDO"; xalign=0), "brand-mark"))
     push!(page, title_label(title))
-    push!(page, GtkLabel(body; wrap=true, xalign=0))
+    push!(page, styled!(GtkLabel(body; wrap=true, xalign=0), "info-card"))
 
     push!(page, navigation_button(window, "Voltar ao Menu", () -> main_menu(window)))
     return page
@@ -60,9 +85,16 @@ function ready_page(window, configuration::MatchConfiguration)
               "Terrenos especiais: $terrain"
 
     page = configure_container!(GtkBox(:v))
+    push!(page, styled!(GtkLabel("NOVA MISSÃO"; xalign=0), "brand-mark"))
     push!(page, title_label("Configuração pronta"))
-    push!(page, GtkLabel(summary; wrap=true, xalign=0))
-    push!(page, GtkLabel("O posicionamento da frota será implementado na próxima etapa."; wrap=true, xalign=0))
+    push!(page, styled!(GtkLabel(summary; wrap=true, xalign=0), "info-card"))
+    push!(
+        page,
+        styled!(
+            GtkLabel("O posicionamento da frota será implementado na próxima etapa."; wrap=true, xalign=0),
+            "muted-card",
+        ),
+    )
 
     push!(
         page,
@@ -78,18 +110,20 @@ end
 
 function name_page(window; initial_name="")
     page = configure_container!(GtkBox(:v))
+    push!(page, styled!(GtkLabel("IDENTIFICAÇÃO"; xalign=0), "brand-mark"))
     push!(page, title_label("Identificação do jogador"))
+    push!(page, subtitle_label("Informe como seu nome aparecerá no ranking da frota."))
 
-    push!(page, GtkLabel("Nome do jogador (2 a 20 caracteres)"; xalign=0))
+    push!(page, field_label("NOME DO JOGADOR  •  2 A 20 CARACTERES"))
     name_entry = GtkEntry()
     name_entry.text = initial_name
     name_entry.placeholder_text = "Digite seu nome"
     push!(page, name_entry)
 
-    error_label = GtkLabel(""; wrap=true, xalign=0)
+    error_label = styled!(GtkLabel(""; wrap=true, xalign=0), "error-text")
     push!(page, error_label)
 
-    continue_button = menu_button("Continuar")
+    continue_button = menu_button("Continuar"; style="primary-action")
     signal_connect(continue_button, "clicked") do _
         validation = validate_player_name(name_entry.text)
         if !validation.valid
@@ -107,14 +141,15 @@ end
 
 function configuration_page(window, player_name)
     page = configure_container!(GtkBox(:v))
+    push!(page, styled!(GtkLabel("PREPARAÇÃO DA MISSÃO"; xalign=0), "brand-mark"))
     push!(page, title_label("Nova partida"))
-    push!(page, GtkLabel("Jogador: $player_name"; xalign=0))
+    push!(page, styled!(GtkLabel("Comandante  •  $player_name"; xalign=0), "player-badge"))
 
-    push!(page, GtkLabel("Tamanho do mapa"; xalign=0))
+    push!(page, field_label("TEATRO DE OPERAÇÕES"))
     map_selector = GtkDropDown(["$(option.name) — $(option.dimension)×$(option.dimension)" for option in MAPS])
     push!(page, map_selector)
 
-    fleet_label = GtkLabel("Frota: $(fleet_text(MAPS[1]))"; wrap=true, xalign=0)
+    fleet_label = styled!(GtkLabel("Frota: $(fleet_text(MAPS[1]))"; wrap=true, xalign=0), "info-card")
     push!(page, fleet_label)
     signal_connect(map_selector, "notify::selected") do selector, _...
         selected_map = MAPS[Int(selector.selected) + 1]
@@ -125,7 +160,7 @@ function configuration_page(window, player_name)
     terrain_toggle.active = true
     push!(page, terrain_toggle)
 
-    continue_button = menu_button("Continuar")
+    continue_button = menu_button("Confirmar Configuração"; style="primary-action")
     signal_connect(continue_button, "clicked") do _
         selected_map = MAPS[Int(map_selector.selected) + 1]
         configuration = create_match_configuration(
@@ -160,7 +195,10 @@ function confirm_exit(on_confirm::Function, window)
     Gtk4.transient_for(dialog, window)
 
     content = configure_container!(GtkBox(:v); spacing=12)
-    push!(content, GtkLabel("Deseja realmente sair do Batalha Naval?"; wrap=true))
+    content.width_request = 440
+    push!(content, styled!(GtkLabel("ENCERRAR OPERAÇÃO"; xalign=0), "brand-mark"))
+    push!(content, title_label("Confirmar saída"))
+    push!(content, subtitle_label("Deseja realmente sair do Batalha Naval?"))
     actions = GtkBox(:h)
     actions.spacing = 12
     push!(content, actions)
@@ -171,7 +209,7 @@ function confirm_exit(on_confirm::Function, window)
     end
     push!(actions, cancel_button)
 
-    exit_button = GtkButton("Sair"; hexpand=true)
+    exit_button = styled!(GtkButton("Sair"; hexpand=true), "danger-action")
     signal_connect(exit_button, "clicked") do _
         close_dialog(dialog)
         on_confirm()
@@ -184,11 +222,12 @@ function confirm_exit(on_confirm::Function, window)
 end
 
 function main_menu(window)
-    page = configure_container!(GtkBox(:v); spacing=18)
+    page = configure_container!(GtkBox(:v); spacing=16)
+    push!(page, styled!(GtkLabel("COMANDO NAVAL"; xalign=0), "brand-mark"))
     push!(page, title_label("Batalha Naval"))
-    push!(page, GtkLabel("Escolha uma opção para continuar."; xalign=0))
+    push!(page, subtitle_label("Estratégia, precisão e domínio dos mares."))
 
-    start_button = menu_button("Iniciar Jogo")
+    start_button = menu_button("Iniciar Nova Batalha"; style="primary-action")
     signal_connect(start_button, "clicked") do _
         window[] = name_page(window)
     end
@@ -214,7 +253,7 @@ function main_menu(window)
     end
     push!(page, instructions_button)
 
-    exit_button = menu_button("Sair")
+    exit_button = menu_button("Sair"; style="danger-action")
     signal_connect(exit_button, "clicked") do _
         close(window)
     end
@@ -227,6 +266,7 @@ function create_window(on_closed::Function=() -> nothing)
     window.resizable = true
     window.width_request = 1000
     window.height_request = 650
+    install_theme!(window)
     window[] = main_menu(window)
 
     close_confirmed = Ref(false)

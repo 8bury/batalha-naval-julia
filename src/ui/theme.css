@@ -1,0 +1,151 @@
+window {
+    background: #06141f;
+    color: #dcecf5;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 16px;
+}
+
+headerbar {
+    background: #091c2a;
+    color: #eaf6fb;
+    border-bottom: 1px solid #17384b;
+    box-shadow: none;
+}
+
+.surface {
+    background: #0b2232;
+    border: 1px solid #1d465d;
+    border-radius: 20px;
+    padding: 36px;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.30);
+}
+
+.brand-mark {
+    color: #38bdf8;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.screen-title {
+    color: #f3f9fc;
+    font-size: 34px;
+    font-weight: 800;
+}
+
+.subtitle {
+    color: #9eb8c8;
+    font-size: 16px;
+}
+
+.field-label {
+    color: #c8dce7;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.player-badge {
+    background: #102f43;
+    border: 1px solid #22546c;
+    border-radius: 999px;
+    color: #7dd3fc;
+    font-weight: 700;
+    padding: 8px 14px;
+}
+
+.info-card {
+    background: #0e2b3d;
+    border: 1px solid #20516a;
+    border-radius: 12px;
+    color: #dcecf5;
+    padding: 16px;
+}
+
+.muted-card {
+    background: #0a1c29;
+    border: 1px solid #17384b;
+    border-radius: 10px;
+    color: #91aaba;
+    padding: 13px;
+}
+
+.error-text {
+    color: #fda4af;
+    font-size: 14px;
+    font-weight: 700;
+    min-height: 18px;
+}
+
+button {
+    min-height: 46px;
+    background-image: none;
+    background: #12364a;
+    border: 1px solid #285b74;
+    border-radius: 11px;
+    color: #e3f2f8;
+    font-weight: 700;
+    padding: 9px 18px;
+    box-shadow: none;
+}
+
+button:hover {
+    background: #194b64;
+    border-color: #3f83a3;
+}
+
+button:active {
+    background: #0d2a3a;
+}
+
+button.primary-action {
+    background: #0ea5e9;
+    border-color: #38bdf8;
+    color: #03141f;
+}
+
+button.primary-action:hover {
+    background: #38bdf8;
+    border-color: #7dd3fc;
+}
+
+button.danger-action {
+    background: transparent;
+    border-color: #7f3441;
+    color: #fda4af;
+}
+
+button.danger-action:hover {
+    background: #4a1d27;
+    border-color: #fb7185;
+}
+
+entry,
+dropdown > button {
+    min-height: 44px;
+    background: #071a27;
+    border: 1px solid #2a5b72;
+    border-radius: 10px;
+    color: #e6f3f8;
+    padding: 8px 12px;
+}
+
+entry:focus,
+dropdown > button:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.20);
+}
+
+checkbutton {
+    color: #c8dce7;
+    padding: 8px 2px;
+}
+
+checkbutton check {
+    background: #071a27;
+    border: 1px solid #2a5b72;
+    border-radius: 5px;
+}
+
+checkbutton check:checked {
+    background: #0ea5e9;
+    border-color: #38bdf8;
+}
