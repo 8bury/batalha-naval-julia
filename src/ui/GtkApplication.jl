@@ -111,8 +111,14 @@ function combat_cell_appearance(match, owner, board, row, column)
     return ("·", "Casa ainda desconhecida", "cell-empty")
 end
 
-function schedule_computer_attacks!(match, strategy, report_result!; interval_ms=600)
-    Gtk4.GLib.g_timeout_add(interval_ms) do
+function schedule_computer_attacks!(
+    report_result!::Function,
+    match::CombatMatch,
+    strategy::ComputerStrategy;
+    interval_ms=600,
+    scheduler=Gtk4.GLib.g_timeout_add,
+)
+    scheduler(interval_ms) do
         result = computer_attack!(match, strategy)
         report_result!(result)
         return isnothing(match.winner) && match.turn == COMPUTER
