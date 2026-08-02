@@ -104,6 +104,31 @@ end
         @test !attack!(match, PLAYER, 5, 5).valid
     end
 
+    @testset "a derrota encerra imediatamente a partida" begin
+        player = combat_board(ships=[
+            ShipPlacement(1, PATROL, 1, 1, HORIZONTAL),
+            ShipPlacement(2, SUBMARINE, 2, 1, HORIZONTAL),
+            ShipPlacement(3, CRUISER, 3, 1, HORIZONTAL),
+        ])
+        enemy = combat_board(ships=[
+            ShipPlacement(1, PATROL, 1, 1, HORIZONTAL),
+            ShipPlacement(2, SUBMARINE, 2, 1, HORIZONTAL),
+            ShipPlacement(3, CRUISER, 3, 1, HORIZONTAL),
+        ])
+        match = create_combat_match(player, enemy)
+        match.turn = COMPUTER
+
+        for cell in [(1, 1), (2, 1), (2, 2), (3, 1), (3, 2)]
+            @test attack!(match, COMPUTER, cell...).valid
+        end
+        final = attack!(match, COMPUTER, 3, 3)
+
+        @test final.outcome == ATTACK_SUNK
+        @test match.winner == COMPUTER
+        @test !attack!(match, COMPUTER, 5, 5).valid
+        @test !attack!(match, PLAYER, 5, 5).valid
+    end
+
     @testset "o computador ataca ate errar sem escolher recife ou repeticao" begin
         player = combat_board(
             reefs=Set([(5, 5)]),
