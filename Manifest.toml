@@ -2,14 +2,14 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "3bc4718dea4d4978b57d9aa5063019f0d8c5f6e4"
+project_hash = "3dee7a3e59874b320399fde399d42773a01c667d"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 version = "1.11.0"
 
 [[deps.BatalhaNaval]]
-deps = ["Gtk4"]
+deps = ["Gtk4", "Random"]
 path = "."
 uuid = "2d1e0bb8-b6c3-4d9d-b79f-e706ccf52d90"
 version = "0.1.0"

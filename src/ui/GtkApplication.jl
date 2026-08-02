@@ -50,8 +50,12 @@ function menu_button(label; style="secondary-action")
     return styled!(button, style)
 end
 
-function navigation_button(window, label, destination)
-    button = menu_button(label)
+function navigation_button(window, label, destination; style="secondary-action", expand=true)
+    button = menu_button(label; style)
+    button.hexpand = expand
+    if !expand
+        button.halign = Gtk4.Align_START
+    end
     signal_connect(button, "clicked") do _
         window[] = destination()
     end
@@ -63,16 +67,23 @@ function fleet_text(option::MapOption)
     patrol = fleet.patrols == 1 ? "Patrulha" : "Patrulhas"
     submarine = fleet.submarines == 1 ? "Submarino" : "Submarinos"
     cruiser = fleet.cruisers == 1 ? "Cruzador" : "Cruzadores"
-    return "$(fleet.patrols) $patrol  •  $(fleet.submarines) $submarine  •  $(fleet.cruisers) $cruiser"
+    return "$(fleet.patrols) $patrol, $(fleet.submarines) $submarine, $(fleet.cruisers) $cruiser"
 end
 
 function information_page(window, title, body)
     page = configure_container!(GtkBox(:v))
-    push!(page, styled!(GtkLabel("CENTRAL DE COMANDO"; xalign=0), "brand-mark"))
     push!(page, title_label(title))
-    push!(page, styled!(GtkLabel(body; wrap=true, xalign=0), "info-card"))
-
-    push!(page, navigation_button(window, "Voltar ao Menu", () -> main_menu(window)))
+    push!(page, subtitle_label(body))
+    push!(
+        page,
+        navigation_button(
+            window,
+            "Voltar ao Menu",
+            () -> main_menu(window);
+            style="quiet-action",
+            expand=false,
+        ),
+    )
     return page
 end
 
@@ -85,7 +96,6 @@ function ready_page(window, configuration::MatchConfiguration, board::Positionin
               "Terrenos especiais: $terrain"
 
     page = configure_container!(GtkBox(:v))
-    push!(page, styled!(GtkLabel("NOVA MISSÃO"; xalign=0), "brand-mark"))
     push!(page, title_label("Configuração pronta"))
     push!(page, styled!(GtkLabel(summary; wrap=true, xalign=0), "info-card"))
     push!(
@@ -111,7 +121,14 @@ end
 function reset_board_cell_style!(button)
     foreach(
         css_class -> remove_css_class(button, css_class),
-        ("cell-empty", "cell-occupied", "cell-preview-valid", "cell-preview-invalid"),
+        (
+            "cell-empty",
+            "cell-occupied",
+            "cell-preview-valid",
+            "cell-preview-invalid",
+            "cell-reef",
+            "cell-shallow-water",
+        ),
     )
     return button
 end
@@ -186,7 +203,12 @@ function positioning_page(
     push!(
         board_column,
         styled!(
-            GtkLabel("P = Patrulha   S = Submarino   C = Cruzador"; xalign=0),
+            GtkLabel(
+                "P = Patrulha   S = Submarino   C = Cruzador   " *
+                "$(terrain_symbol(REEF)) = Recife   $(terrain_symbol(SHALLOW_WATER)) = Águas Rasas";
+                wrap=true,
+                xalign=0,
+            ),
             "board-legend",
         ),
     )
@@ -241,11 +263,19 @@ function positioning_page(
             for column in 1:board.dimension
                 cell_button = cell_buttons[row, column]
                 placement = ship_at(board, row, column)
+                terrain = terrain_at(board, row, column)
                 reset_board_cell_style!(cell_button)
                 if !isnothing(placement)
                     cell_button.label = ship_symbol(placement.ship_type)
-                    cell_button.tooltip_text = "$(Char(Int('A') + column - 1))$row — clique para remover"
+                    cell_button.tooltip_text = isnothing(terrain) ?
+                        "$(Char(Int('A') + column - 1))$row — clique para remover" :
+                        "$(terrain_tooltip(terrain)) Clique para remover a embarcação."
                     add_css_class(cell_button, "cell-occupied")
+                    if terrain == REEF
+                        add_css_class(cell_button, "cell-reef")
+                    elseif terrain == SHALLOW_WATER
+                        add_css_class(cell_button, "cell-shallow-water")
+                    end
                 elseif (row, column) in preview_cells
                     cell_button.label = current_preview.valid ? "·" : "×"
                     cell_button.tooltip_text = current_preview.message
@@ -254,9 +284,18 @@ function positioning_page(
                         current_preview.valid ? "cell-preview-valid" : "cell-preview-invalid",
                     )
                 else
-                    cell_button.label = "·"
-                    cell_button.tooltip_text = "$(Char(Int('A') + column - 1))$row"
-                    add_css_class(cell_button, "cell-empty")
+                    if isnothing(terrain)
+                        cell_button.label = "·"
+                        cell_button.tooltip_text = "$(Char(Int('A') + column - 1))$row"
+                        add_css_class(cell_button, "cell-empty")
+                    else
+                        cell_button.label = terrain_symbol(terrain)
+                        cell_button.tooltip_text = terrain_tooltip(terrain)
+                        add_css_class(
+                            cell_button,
+                            terrain == REEF ? "cell-reef" : "cell-shallow-water",
+                        )
+                    end
                 end
             end
         end
@@ -403,11 +442,10 @@ end
 
 function name_page(window; initial_name="")
     page = configure_container!(GtkBox(:v))
-    push!(page, styled!(GtkLabel("IDENTIFICAÇÃO"; xalign=0), "brand-mark"))
     push!(page, title_label("Identificação do jogador"))
     push!(page, subtitle_label("Informe como seu nome aparecerá no ranking da frota."))
 
-    push!(page, field_label("NOME DO JOGADOR  •  2 A 20 CARACTERES"))
+    push!(page, field_label("Nome do jogador (2 a 20 caracteres)"))
     name_entry = GtkEntry()
     name_entry.text = initial_name
     name_entry.placeholder_text = "Digite seu nome"
@@ -434,12 +472,11 @@ end
 
 function configuration_page(window, player_name)
     page = configure_container!(GtkBox(:v))
-    push!(page, styled!(GtkLabel("PREPARAÇÃO DA MISSÃO"; xalign=0), "brand-mark"))
     push!(page, title_label("Nova partida"))
-    push!(page, styled!(GtkLabel("Comandante  •  $player_name"; xalign=0), "player-badge"))
+    push!(page, styled!(GtkLabel("Jogador: $player_name"; xalign=0), "context-line"))
 
-    push!(page, field_label("TEATRO DE OPERAÇÕES"))
-    map_selector = GtkDropDown(["$(option.name) — $(option.dimension)×$(option.dimension)" for option in MAPS])
+    push!(page, field_label("Tamanho do mapa"))
+    map_selector = GtkDropDown(["$(option.name), $(option.dimension) × $(option.dimension)" for option in MAPS])
     push!(page, map_selector)
 
     fleet_label = styled!(GtkLabel("Frota: $(fleet_text(MAPS[1]))"; wrap=true, xalign=0), "info-card")
@@ -487,16 +524,19 @@ function confirm_exit(on_confirm::Function, window)
     dialog = GtkWindow(; modal=true, title="Confirmar saída")
     Gtk4.transient_for(dialog, window)
 
-    content = configure_container!(GtkBox(:v); spacing=12)
+    content = GtkBox(:v)
+    content.spacing = 16
     content.width_request = 440
-    push!(content, styled!(GtkLabel("ENCERRAR OPERAÇÃO"; xalign=0), "brand-mark"))
-    push!(content, title_label("Confirmar saída"))
+    content.margin_top = 24
+    content.margin_bottom = 24
+    content.margin_start = 24
+    content.margin_end = 24
     push!(content, subtitle_label("Deseja realmente sair do Batalha Naval?"))
     actions = GtkBox(:h)
     actions.spacing = 12
     push!(content, actions)
 
-    cancel_button = GtkButton("Cancelar"; hexpand=true)
+    cancel_button = styled!(GtkButton("Cancelar"; hexpand=true), "secondary-action")
     signal_connect(cancel_button, "clicked") do _
         close_dialog(dialog)
     end
@@ -516,11 +556,10 @@ end
 
 function main_menu(window)
     page = configure_container!(GtkBox(:v); spacing=16)
-    push!(page, styled!(GtkLabel("COMANDO NAVAL"; xalign=0), "brand-mark"))
     push!(page, title_label("Batalha Naval"))
-    push!(page, subtitle_label("Estratégia, precisão e domínio dos mares."))
+    push!(page, subtitle_label("Escolha uma opção para continuar."))
 
-    start_button = menu_button("Iniciar Nova Batalha"; style="primary-action")
+    start_button = menu_button("Iniciar Jogo"; style="primary-action")
     signal_connect(start_button, "clicked") do _
         window[] = name_page(window)
     end

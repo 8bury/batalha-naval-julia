@@ -1,148 +1,160 @@
 window {
-    background: #06141f;
-    color: #dcecf5;
-    font-family: "Segoe UI", sans-serif;
+    background: #07141d;
+    color: #e5edf2;
+    font-family: "Bahnschrift", "Noto Sans", sans-serif;
     font-size: 16px;
 }
 
 headerbar {
-    background: #091c2a;
-    color: #eaf6fb;
-    border-bottom: 1px solid #17384b;
+    background: #0a1b26;
+    color: #e5edf2;
+    border-bottom: 1px solid #29424f;
     box-shadow: none;
 }
 
 .surface {
-    background: #0b2232;
-    border: 1px solid #1d465d;
-    border-radius: 20px;
-    padding: 36px;
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.30);
-}
-
-.brand-mark {
-    color: #38bdf8;
-    font-size: 13px;
-    font-weight: 800;
+    background: #0d2230;
+    border: 1px solid #2c4a59;
+    border-radius: 8px;
+    padding: 28px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
 }
 
 .screen-title {
-    color: #f3f9fc;
-    font-size: 34px;
-    font-weight: 800;
+    color: #f0f6f8;
+    font-size: 30px;
+    font-weight: 600;
 }
 
 .subtitle {
-    color: #9eb8c8;
-    font-size: 16px;
+    color: #a9bec9;
+    font-size: 15px;
 }
 
 .field-label {
-    color: #c8dce7;
+    color: #cfdee5;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 600;
 }
 
-.player-badge {
-    background: #102f43;
-    border: 1px solid #22546c;
-    border-radius: 999px;
-    color: #7dd3fc;
-    font-weight: 700;
-    padding: 8px 14px;
+.context-line {
+    border-left: 3px solid #5b95b0;
+    color: #d5e3e9;
+    font-weight: 600;
+    padding: 5px 10px;
 }
 
 .info-card {
-    background: #0e2b3d;
-    border: 1px solid #20516a;
-    border-radius: 12px;
-    color: #dcecf5;
-    padding: 16px;
+    background: #112a38;
+    border: 1px solid #315160;
+    border-radius: 7px;
+    color: #dce9ee;
+    padding: 14px;
 }
 
 .muted-card {
-    background: #0a1c29;
-    border: 1px solid #17384b;
-    border-radius: 10px;
-    color: #91aaba;
-    padding: 13px;
+    border-left: 2px solid #3b5967;
+    color: #9db2bc;
+    padding: 8px 12px;
 }
 
 .error-text {
-    color: #fda4af;
+    color: #f2aaa7;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 600;
     min-height: 18px;
 }
 
-button {
-    min-height: 46px;
+button.secondary-action,
+button.primary-action,
+button.danger-action {
+    min-height: 44px;
     background-image: none;
-    background: #12364a;
-    border: 1px solid #285b74;
-    border-radius: 11px;
-    color: #e3f2f8;
-    font-weight: 700;
-    padding: 9px 18px;
+    background: #132b38;
+    border: 1px solid #375866;
+    border-radius: 7px;
+    color: #e1ebef;
+    font-weight: 600;
+    padding: 8px 16px;
     box-shadow: none;
 }
 
-button:hover {
-    background: #194b64;
-    border-color: #3f83a3;
+button.secondary-action:hover {
+    background: #1b3b4b;
+    border-color: #4e7485;
 }
 
-button:active {
-    background: #0d2a3a;
+button.secondary-action:active {
+    background: #0e222d;
 }
 
 button.primary-action {
-    background: #0ea5e9;
-    border-color: #38bdf8;
-    color: #03141f;
+    background: #5b95b0;
+    border-color: #70aac3;
+    color: #07131a;
 }
 
 button.primary-action:hover {
-    background: #38bdf8;
-    border-color: #7dd3fc;
+    background: #70aac3;
+    border-color: #8bbbd0;
 }
 
 button.danger-action {
     background: transparent;
-    border-color: #7f3441;
-    color: #fda4af;
+    border-color: #7c4b52;
+    color: #f2aaa7;
 }
 
 button.danger-action:hover {
-    background: #4a1d27;
-    border-color: #fb7185;
+    background: #3b242a;
+    border-color: #a8656d;
+}
+
+button.quiet-action {
+    min-height: 34px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: #cfdee5;
+    font-weight: 600;
+    padding: 5px 10px;
+    box-shadow: none;
+}
+
+button.quiet-action:hover {
+    background: #132b38;
+    border-color: #375866;
+}
+
+button.quiet-action:active {
+    background: #0e222d;
 }
 
 entry,
 dropdown > button {
-    min-height: 44px;
-    background: #071a27;
-    border: 1px solid #2a5b72;
-    border-radius: 10px;
-    color: #e6f3f8;
-    padding: 8px 12px;
+    min-height: 42px;
+    background: #091923;
+    border: 1px solid #365766;
+    border-radius: 7px;
+    color: #e5edf2;
+    padding: 7px 11px;
 }
 
 entry:focus,
 dropdown > button:focus {
-    border-color: #38bdf8;
-    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.20);
+    border-color: #5b95b0;
+    box-shadow: 0 0 0 1px rgba(91, 149, 176, 0.32);
 }
 
 checkbutton {
-    color: #c8dce7;
-    padding: 8px 2px;
+    color: #cfdee5;
+    padding: 7px 2px;
 }
 
 checkbutton check {
-    background: #071a27;
-    border: 1px solid #2a5b72;
-    border-radius: 5px;
+    background: #091923;
+    border: 1px solid #365766;
+    border-radius: 4px;
 }
 
 checkbutton check:checked {
@@ -180,9 +192,37 @@ button.cell-empty:hover {
     border-color: #5b95b0;
 }
 
+button.cell-reef {
+    background: #344b55;
+    border: 1px solid #718995;
+    color: #d7e4e8;
+}
+
+button.cell-reef:hover {
+    background: #405d69;
+    border-color: #a2bac2;
+}
+
+button.cell-shallow-water {
+    background: #16465b;
+    border: 1px solid #4f9ab2;
+    color: #b9e7f1;
+}
+
+button.cell-shallow-water:hover {
+    background: #1d5b73;
+    border-color: #7bc3d8;
+}
+
 button.cell-occupied {
     background: #5b95b0;
     border: 1px solid #8dc4d5;
+    color: #07141d;
+}
+
+button.cell-occupied.cell-shallow-water {
+    background: #347d91;
+    border-color: #9ad7e2;
     color: #07141d;
 }
 

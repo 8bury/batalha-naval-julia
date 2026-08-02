@@ -1,5 +1,7 @@
 module BatalhaNaval
 
+using Random
+
 export FleetComposition,
        LAKE,
        OCEAN,
@@ -16,14 +18,26 @@ export FleetComposition,
        PATROL,
        SUBMARINE,
        CRUISER,
+       TerrainKind,
+       TerrainType,
+       REEF,
+       SHALLOW_WATER,
+       TerrainLimits,
+       TerrainLayout,
        PlacementPreview,
        PositioningBoard,
        ShipPlacement,
        all_ships_placed,
        available_ships,
        clear_board!,
+       create_match_boards,
        create_match_configuration,
        create_positioning_board,
+       create_positioning_boards,
+       create_terrain_layout,
+       empty_terrain_layout,
+       max_reefs,
+       max_shallow_waters,
        map_option,
        map_options,
        place_ship!,
@@ -32,10 +46,20 @@ export FleetComposition,
        preview_placement,
        remove_ship!,
        remove_ship_at!,
+       reef_cells,
        ship_at,
        ship_label,
        ship_length,
        ship_symbol,
+       shallow_water_cells,
+       terrain_at,
+       terrain_cells,
+       terrain_label,
+       terrain_layout,
+       terrain_limits,
+       terrain_layout_supports_fleet,
+       terrain_symbol,
+       terrain_tooltip,
        validate_player_name
 
 @enum MapKind begin
@@ -57,10 +81,48 @@ end
 
 const ShipKind = ShipType
 
+@enum TerrainKind begin
+    REEF
+    SHALLOW_WATER
+end
+
+const TerrainType = TerrainKind
+
 struct FleetComposition
     patrols::Int
     submarines::Int
     cruisers::Int
+end
+
+struct TerrainLimits
+    max_reefs::Int
+    max_shallow_waters::Int
+end
+
+struct TerrainLayout
+    dimension::Int
+    reefs::Set{Tuple{Int, Int}}
+    shallow_waters::Set{Tuple{Int, Int}}
+
+    function TerrainLayout(dimension::Int, reefs, shallow_waters)
+        dimension > 0 || throw(ArgumentError("A dimensão do terreno deve ser positiva."))
+        normalized_reefs = Set{Tuple{Int, Int}}(reefs)
+        normalized_shallow_waters = Set{Tuple{Int, Int}}(shallow_waters)
+        all_cells = vcat(collect(normalized_reefs), collect(normalized_shallow_waters))
+        all(
+            cell -> 1 <= cell[1] <= dimension && 1 <= cell[2] <= dimension,
+            all_cells,
+        ) || throw(ArgumentError("Terrenos especiais devem ficar dentro do mapa."))
+        isempty(intersect(normalized_reefs, normalized_shallow_waters)) ||
+            throw(ArgumentError("Recifes e águas rasas não podem ocupar a mesma casa."))
+        return new(dimension, normalized_reefs, normalized_shallow_waters)
+    end
+end
+
+function Base.:(==)(left::TerrainLayout, right::TerrainLayout)
+    return left.dimension == right.dimension &&
+           left.reefs == right.reefs &&
+           left.shallow_waters == right.shallow_waters
 end
 
 struct MapOption
@@ -94,9 +156,25 @@ mutable struct PositioningBoard
     map::MapKind
     dimension::Int
     fleet::FleetComposition
+    terrain::TerrainLayout
     placements::Vector{ShipPlacement}
     next_id::Int
 end
+
+PositioningBoard(
+    map::MapKind,
+    dimension::Int,
+    fleet::FleetComposition,
+    placements::Vector{ShipPlacement},
+    next_id::Int,
+) = PositioningBoard(
+    map,
+    dimension,
+    fleet,
+    empty_terrain_layout(dimension),
+    placements,
+    next_id,
+)
 
 struct MatchConfiguration
     player_name::String
@@ -138,6 +216,27 @@ const SHIP_SYMBOLS = Dict(
     CRUISER => "C",
 )
 
+const TERRAIN_LIMITS = Dict(
+    PUDDLE => TerrainLimits(1, 1),
+    LAKE => TerrainLimits(3, 3),
+    OCEAN => TerrainLimits(5, 5),
+)
+
+const TERRAIN_LABELS = Dict(
+    REEF => "Recife",
+    SHALLOW_WATER => "Águas Rasas",
+)
+
+const TERRAIN_SYMBOLS = Dict(
+    REEF => "◆",
+    SHALLOW_WATER => "≈",
+)
+
+const TERRAIN_TOOLTIPS = Dict(
+    REEF => "Recife — nenhuma embarcação pode ocupar esta casa.",
+    SHALLOW_WATER => "Águas Rasas — somente Patrulhas podem ocupar esta casa.",
+)
+
 """Retorna os mapas disponíveis na ordem exibida pelo aplicativo."""
 map_options() = collect(MAP_OPTIONS)
 
@@ -147,6 +246,16 @@ ship_length(ship_type::ShipType) = SHIP_LENGTHS[ship_type]
 """Retorna o nome da embarcação para a interface em português."""
 ship_label(ship_type::ShipType) = SHIP_LABELS[ship_type]
 ship_symbol(ship_type::ShipType) = SHIP_SYMBOLS[ship_type]
+
+max_reefs(map::MapKind) = TERRAIN_LIMITS[map].max_reefs
+max_shallow_waters(map::MapKind) = TERRAIN_LIMITS[map].max_shallow_waters
+terrain_limits(map::MapKind) = TERRAIN_LIMITS[map]
+terrain_limits(option::MapOption) = terrain_limits(option.kind)
+max_reefs(option::MapOption) = max_reefs(option.kind)
+max_shallow_waters(option::MapOption) = max_shallow_waters(option.kind)
+terrain_label(kind::TerrainKind) = TERRAIN_LABELS[kind]
+terrain_symbol(kind::TerrainKind) = TERRAIN_SYMBOLS[kind]
+terrain_tooltip(kind::TerrainKind) = TERRAIN_TOOLTIPS[kind]
 
 function fleet_count(fleet::FleetComposition, ship_type::ShipType)
     ship_type == PATROL && return fleet.patrols
@@ -158,14 +267,180 @@ function map_option(map::MapKind)
     return only(filter(option -> option.kind == map, MAP_OPTIONS))
 end
 
-"""Cria o estado vazio de posicionamento para um mapa clássico."""
-create_positioning_board(map::MapKind) = begin
-    option = map_option(map)
-    PositioningBoard(map, option.dimension, option.fleet, ShipPlacement[], 1)
+empty_terrain_layout(map::MapKind) = TerrainLayout(map_option(map).dimension, Set{Tuple{Int, Int}}(), Set{Tuple{Int, Int}}())
+empty_terrain_layout(dimension::Int) = TerrainLayout(dimension, Set{Tuple{Int, Int}}(), Set{Tuple{Int, Int}}())
+
+reef_cells(layout::TerrainLayout) = copy(layout.reefs)
+shallow_water_cells(layout::TerrainLayout) = copy(layout.shallow_waters)
+terrain_cells(layout::TerrainLayout) = union(layout.reefs, layout.shallow_waters)
+terrain_cells(layout::TerrainLayout, kind::TerrainKind) = kind == REEF ? reef_cells(layout) : shallow_water_cells(layout)
+terrain_at(layout::TerrainLayout, row::Int, column::Int) =
+    (row, column) in layout.reefs ? REEF :
+    (row, column) in layout.shallow_waters ? SHALLOW_WATER : nothing
+
+function sample_cells(rng, dimension::Int, amount::Int, excluded::Set{Tuple{Int, Int}})
+    candidates = [
+        (row, column) for row in 1:dimension for column in 1:dimension
+        if !((row, column) in excluded)
+    ]
+    amount <= length(candidates) || throw(ArgumentError("Não há casas suficientes para sortear o terreno."))
+    return Set(shuffle(rng, candidates)[1:amount])
 end
 
-create_positioning_board(option::MapOption) = create_positioning_board(option.kind)
-create_positioning_board(configuration::MatchConfiguration) = create_positioning_board(configuration.map)
+function terrain_placement_allowed(
+    layout::TerrainLayout,
+    ship_type::ShipType,
+    cells::Vector{Tuple{Int, Int}},
+    occupied::Set{Tuple{Int, Int}}=Set{Tuple{Int, Int}}(),
+)
+    all(
+        cell -> 1 <= cell[1] <= layout.dimension && 1 <= cell[2] <= layout.dimension,
+        cells,
+    ) || return false
+    all(cell -> !(cell in layout.reefs), cells) || return false
+    ship_type != PATROL && any(cell -> cell in layout.shallow_waters, cells) && return false
+    return all(cell -> !(cell in occupied), cells)
+end
+
+function fleet_ship_types(fleet::FleetComposition)
+    return vcat(
+        fill(CRUISER, fleet.cruisers),
+        fill(SUBMARINE, fleet.submarines),
+        fill(PATROL, fleet.patrols),
+    )
+end
+
+function terrain_layout_supports_fleet(layout::TerrainLayout, fleet::FleetComposition)
+    ship_types = fleet_ship_types(fleet)
+    failed_states = Set{Tuple{Int, Tuple{Vararg{Tuple{Int, Int}}}}}()
+
+    function search(index::Int, occupied::Set{Tuple{Int, Int}})
+        index > length(ship_types) && return true
+        failed_state_key = (index, Tuple(sort(collect(occupied))))
+        failed_state_key in failed_states && return false
+        ship_type = ship_types[index]
+        for row in 1:layout.dimension
+            for column in 1:layout.dimension
+                for orientation in (HORIZONTAL, VERTICAL)
+                    cells = placement_cells(ship_type, row, column, orientation)
+                    if terrain_placement_allowed(layout, ship_type, cells, occupied)
+                        union!(occupied, cells)
+                        search(index + 1, occupied) && return true
+                        setdiff!(occupied, cells)
+                    end
+                end
+            end
+        end
+        push!(failed_states, failed_state_key)
+        return false
+    end
+
+    return search(1, Set{Tuple{Int, Int}}())
+end
+
+function create_terrain_layout(
+    map::MapKind;
+    rng=Random.default_rng(),
+    max_attempts::Int=10_000,
+)
+    option = map_option(map)
+    for _ in 1:max_attempts
+        reefs = sample_cells(rng, option.dimension, rand(rng, 0:max_reefs(map)), Set{Tuple{Int, Int}}())
+        shallow_waters = sample_cells(rng, option.dimension, rand(rng, 0:max_shallow_waters(map)), reefs)
+        layout = TerrainLayout(option.dimension, reefs, shallow_waters)
+        terrain_layout_supports_fleet(layout, option.fleet) && return layout
+    end
+    throw(ArgumentError("Não foi possível sortear um desenho de terrenos que comporte a frota."))
+end
+
+create_terrain_layout(option::MapOption; kwargs...) =
+    create_terrain_layout(option.kind; kwargs...)
+
+function resolve_terrain_layout(
+    map::MapKind,
+    fleet::FleetComposition;
+    special_terrain::Bool=false,
+    terrain_layout=nothing,
+    rng=Random.default_rng(),
+)
+    layout = if !isnothing(terrain_layout)
+        terrain_layout isa TerrainLayout || throw(ArgumentError("O desenho de terreno é inválido."))
+        terrain_layout
+    elseif special_terrain
+        create_terrain_layout(map; rng)
+    else
+        empty_terrain_layout(map)
+    end
+    layout.dimension == map_option(map).dimension ||
+        throw(ArgumentError("O desenho de terreno não corresponde ao tamanho do mapa."))
+    length(layout.reefs) <= max_reefs(map) ||
+        throw(ArgumentError("O desenho excede o máximo de recifes deste mapa."))
+    length(layout.shallow_waters) <= max_shallow_waters(map) ||
+        throw(ArgumentError("O desenho excede o máximo de águas rasas deste mapa."))
+    terrain_layout_supports_fleet(layout, fleet) ||
+        throw(ArgumentError("O desenho de terreno não comporta toda a frota."))
+    return layout
+end
+
+"""Cria o estado de posicionamento, com terrenos opcionais e validáveis."""
+function create_positioning_board(
+    map::MapKind;
+    special_terrain::Bool=false,
+    terrain_layout=nothing,
+    rng=Random.default_rng(),
+)
+    option = map_option(map)
+    layout = resolve_terrain_layout(
+        map,
+        option.fleet;
+        special_terrain,
+        terrain_layout,
+        rng,
+    )
+    PositioningBoard(map, option.dimension, option.fleet, layout, ShipPlacement[], 1)
+end
+
+create_positioning_board(option::MapOption; kwargs...) = create_positioning_board(option.kind; kwargs...)
+create_positioning_board(configuration::MatchConfiguration; rng=Random.default_rng()) =
+    create_positioning_board(configuration.map; special_terrain=configuration.special_terrain, rng)
+
+function create_positioning_board(
+    configuration::MatchConfiguration,
+    layout::TerrainLayout;
+    rng=Random.default_rng(),
+)
+    return create_positioning_board(
+        configuration.map;
+        special_terrain=configuration.special_terrain,
+        terrain_layout=layout,
+        rng,
+    )
+end
+
+function create_match_boards(
+    configuration::MatchConfiguration;
+    rng=Random.default_rng(),
+    terrain_layout=nothing,
+)
+    layout = !isnothing(terrain_layout) ? terrain_layout :
+        configuration.special_terrain ?
+        create_terrain_layout(configuration.map; rng) :
+        empty_terrain_layout(configuration.map)
+    return (
+        create_positioning_board(configuration, layout; rng),
+        create_positioning_board(configuration, layout; rng),
+    )
+end
+
+create_positioning_boards(configuration::MatchConfiguration; kwargs...) =
+    create_match_boards(configuration; kwargs...)
+
+terrain_layout(board::PositioningBoard) = board.terrain
+reef_cells(board::PositioningBoard) = reef_cells(board.terrain)
+shallow_water_cells(board::PositioningBoard) = shallow_water_cells(board.terrain)
+terrain_cells(board::PositioningBoard) = terrain_cells(board.terrain)
+terrain_cells(board::PositioningBoard, kind::TerrainKind) = terrain_cells(board.terrain, kind)
+terrain_at(board::PositioningBoard, row::Int, column::Int) = terrain_at(board.terrain, row, column)
 
 """Retorna as embarcações ainda não posicionadas, repetindo tipos conforme a frota."""
 function available_ships(board::PositioningBoard)
@@ -232,6 +507,14 @@ function preview_placement(
         cells,
     )
         return invalid_preview(cells, "A posição sai dos limites do tabuleiro.")
+    end
+
+    if any(cell -> cell in board.terrain.reefs, cells)
+        return invalid_preview(cells, "A posição passa por um recife e não pode receber embarcações.")
+    end
+
+    if ship_type != PATROL && any(cell -> cell in board.terrain.shallow_waters, cells)
+        return invalid_preview(cells, "Apenas Patrulhas podem ocupar casas de águas rasas.")
     end
 
     occupied = Set(placement_cells(board))
