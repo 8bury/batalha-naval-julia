@@ -87,7 +87,12 @@ function information_page(window, title, body)
     return page
 end
 
-function ready_page(window, configuration::MatchConfiguration, board::PositioningBoard)
+function ready_page(
+    window,
+    configuration::MatchConfiguration,
+    player_board::PositioningBoard,
+    computer_board::PositioningBoard,
+)
     option = map_option(configuration.map)
     terrain = configuration.special_terrain ? "habilitados" : "desabilitados"
     summary = "Jogador: $(configuration.player_name)\n" *
@@ -111,7 +116,7 @@ function ready_page(window, configuration::MatchConfiguration, board::Positionin
         navigation_button(
             window,
             "Alterar Posicionamento",
-            () -> positioning_page(window, configuration, board),
+            () -> positioning_page(window, configuration, player_board, computer_board),
         ),
     )
     push!(page, navigation_button(window, "Menu Principal", () -> main_menu(window)))
@@ -134,13 +139,15 @@ function reset_board_cell_style!(button)
 end
 
 function positioning_page(window, configuration::MatchConfiguration)
-    return positioning_page(window, configuration, create_positioning_board(configuration))
+    player_board, computer_board = create_match_boards(configuration)
+    return positioning_page(window, configuration, player_board, computer_board)
 end
 
 function positioning_page(
     window,
     configuration::MatchConfiguration,
     board::PositioningBoard,
+    computer_board::PositioningBoard,
 )
     selected_ship = Ref{Union{Nothing, ShipType}}(nothing)
     orientation = Ref(HORIZONTAL)
@@ -221,6 +228,17 @@ function positioning_page(
 
     push!(controls, field_label("Embarcações disponíveis"))
     fleet_buttons = Dict{ShipType, Any}()
+    function auto_positioning!()
+        result = auto_place_ships!(board)
+        selected_ship[] = nothing
+        preview[] = nothing
+        preview_start[] = nothing
+        set_status!(result.message; valid=result.success)
+        render_board!()
+        refresh_controls!()
+        return nothing
+    end
+
     for ship_type in (PATROL, SUBMARINE, CRUISER)
         ship_button = menu_button(ship_label(ship_type); style="secondary-action")
         fleet_buttons[ship_type] = ship_button
@@ -229,6 +247,9 @@ function positioning_page(
 
     orientation_button = menu_button("Orientação: Horizontal"; style="secondary-action")
     push!(controls, orientation_button)
+
+    auto_position_button = menu_button("Posicionar Automaticamente"; style="secondary-action")
+    push!(controls, auto_position_button)
 
     confirm_position_button = menu_button("Confirmar Posição"; style="primary-action")
     confirm_position_button.sensitive = false
@@ -315,7 +336,7 @@ function positioning_page(
             end
         end
         confirm_position_button.sensitive = !isnothing(preview[]) && preview[].valid
-        confirm_fleet_button.sensitive = all_ships_placed(board)
+        confirm_fleet_button.sensitive = battle_ready(board, computer_board)
         return nothing
     end
 
@@ -427,9 +448,13 @@ function positioning_page(
         clear_positioning!()
         return nothing
     end
+    signal_connect(auto_position_button, "clicked") do _
+        auto_positioning!()
+        return nothing
+    end
     signal_connect(confirm_fleet_button, "clicked") do _
-        if all_ships_placed(board)
-            window[] = ready_page(window, configuration, board)
+        if battle_ready(board, computer_board)
+            window[] = ready_page(window, configuration, board, computer_board)
         end
         return nothing
     end

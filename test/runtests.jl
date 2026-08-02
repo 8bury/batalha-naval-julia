@@ -8,6 +8,7 @@ end
 
 include("configuration_test.jl")
 include("positioning_test.jl")
+include("automatic_positioning_test.jl")
 include("special_terrain_test.jl")
 include("theme_css_test.jl")
 include("font_rendering_test.jl")

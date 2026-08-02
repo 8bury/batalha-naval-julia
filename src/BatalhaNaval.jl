@@ -10,6 +10,7 @@ export FleetComposition,
        MapKind,
        MapOption,
        NameValidation,
+       AutoPlacementResult,
        Orientation,
        HORIZONTAL,
        VERTICAL,
@@ -28,7 +29,9 @@ export FleetComposition,
        PositioningBoard,
        ShipPlacement,
        all_ships_placed,
+       auto_place_ships!,
        available_ships,
+       battle_ready,
        clear_board!,
        create_match_boards,
        create_match_configuration,
@@ -150,6 +153,12 @@ struct PlacementPreview
     valid::Bool
     cells::Vector{Tuple{Int, Int}}
     message::String
+end
+
+struct AutoPlacementResult
+    success::Bool
+    message::String
+    placed::Vector{ShipPlacement}
 end
 
 mutable struct PositioningBoard
@@ -426,10 +435,11 @@ function create_match_boards(
         configuration.special_terrain ?
         create_terrain_layout(configuration.map; rng) :
         empty_terrain_layout(configuration.map)
-    return (
-        create_positioning_board(configuration, layout; rng),
-        create_positioning_board(configuration, layout; rng),
-    )
+    player_board = create_positioning_board(configuration, layout; rng)
+    computer_board = create_positioning_board(configuration, layout; rng)
+    result = auto_place_ships!(computer_board; rng)
+    result.success || throw(ArgumentError(result.message))
+    return (player_board, computer_board)
 end
 
 create_positioning_boards(configuration::MatchConfiguration; kwargs...) =
@@ -583,6 +593,89 @@ positioned_ships(board::PositioningBoard) = copy(board.placements)
 
 """Indica se toda a frota prevista para o mapa já foi posicionada."""
 all_ships_placed(board::PositioningBoard) = isempty(available_ships(board))
+
+function auto_placement_candidates(
+    board::PositioningBoard,
+    ship_type::ShipType,
+    occupied::Set{Tuple{Int, Int}},
+    rng,
+)
+    candidates = ShipPlacement[]
+    for row in 1:board.dimension
+        for column in 1:board.dimension
+            for orientation in (HORIZONTAL, VERTICAL)
+                cells = placement_cells(ship_type, row, column, orientation)
+                if terrain_placement_allowed(board.terrain, ship_type, cells, occupied)
+                    push!(
+                        candidates,
+                        ShipPlacement(0, ship_type, row, column, orientation),
+                    )
+                end
+            end
+        end
+    end
+    return shuffle(rng, candidates)
+end
+
+function find_auto_placements(
+    board::PositioningBoard,
+    ship_types::Vector{ShipType},
+    rng,
+)
+    occupied = Set(placement_cells(board))
+    planned = ShipPlacement[]
+
+    function search(index::Int)
+        index > length(ship_types) && return true
+        ship_type = ship_types[index]
+        for candidate in auto_placement_candidates(board, ship_type, occupied, rng)
+            cells = placement_cells(candidate)
+            union!(occupied, cells)
+            push!(planned, candidate)
+            if search(index + 1)
+                return true
+            end
+            pop!(planned)
+            setdiff!(occupied, cells)
+        end
+        return false
+    end
+
+    return search(1) ? copy(planned) : nothing
+end
+
+"""Completa uma frota sem substituir nenhuma embarcação já posicionada."""
+function auto_place_ships!(board::PositioningBoard; rng=Random.default_rng())
+    ship_types = sort(available_ships(board); by=ship_length, rev=true)
+    planned = find_auto_placements(board, ship_types, rng)
+    if isnothing(planned)
+        return AutoPlacementResult(
+            false,
+            "Não foi possível completar a frota preservando as posições manuais. " *
+            "Corrija a configuração e tente novamente.",
+            ShipPlacement[],
+        )
+    end
+
+    placed = ShipPlacement[]
+    for candidate in planned
+        placement = ShipPlacement(
+            board.next_id,
+            candidate.ship_type,
+            candidate.start_row,
+            candidate.start_column,
+            candidate.orientation,
+        )
+        push!(board.placements, placement)
+        push!(placed, placement)
+        board.next_id += 1
+    end
+    return AutoPlacementResult(true, "Frota completada automaticamente.", placed)
+end
+
+"""Indica se jogador e computador já podem iniciar a batalha."""
+battle_ready(player_board::PositioningBoard, computer_board::PositioningBoard) =
+    all_ships_placed(player_board) && all_ships_placed(computer_board)
 
 """Remove uma embarcação pelo identificador público da posição."""
 function remove_ship!(board::PositioningBoard, id::Int)
