@@ -261,3 +261,11 @@ button.selected-action {
     color: #8eaab6;
     font-size: 13px;
 }
+
+button.combat-water { background: #103345; border: 1px solid #5b95b0; color: #b9deeb; }
+button.combat-damaged { background: #70432c; border: 2px solid #efa866; color: #ffe0bf; }
+button.combat-sunk { background: #542c35; border: 2px solid #e27c88; color: #ffd2d6; }
+
+.combat-status { min-height: 24px; color: #c7d9df; font-weight: 600; }
+.combat-status.combat-victory { color: #8bd5b4; }
+.combat-status.combat-defeat { color: #f0a4a7; }

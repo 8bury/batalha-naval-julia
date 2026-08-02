@@ -3,6 +3,22 @@ module BatalhaNaval
 using Random
 
 export FleetComposition,
+       AttackResult,
+       CombatMatch,
+       Participant,
+       PLAYER,
+       COMPUTER,
+       AttackOutcome,
+       ATTACK_INVALID,
+       ATTACK_MISS,
+       ATTACK_HIT,
+       ATTACK_SUNK,
+       PublicCellState,
+       UNKNOWN,
+       WATER,
+       DAMAGED,
+       SUNK,
+       PUBLIC_REEF,
        LAKE,
        OCEAN,
        PUDDLE,
@@ -30,11 +46,13 @@ export FleetComposition,
        ShipPlacement,
        all_ships_placed,
        auto_place_ships!,
+       attack!,
        available_ships,
        battle_ready,
        clear_board!,
        create_match_boards,
        create_match_configuration,
+       create_combat_match,
        create_positioning_board,
        create_positioning_boards,
        create_terrain_layout,
@@ -46,6 +64,8 @@ export FleetComposition,
        place_ship!,
        placement_cells,
        positioned_ships,
+       public_cell,
+       computer_turn!,
        preview_placement,
        remove_ship!,
        remove_ship_at!,
@@ -87,6 +107,26 @@ const ShipKind = ShipType
 @enum TerrainKind begin
     REEF
     SHALLOW_WATER
+end
+
+@enum Participant begin
+    PLAYER
+    COMPUTER
+end
+
+@enum AttackOutcome begin
+    ATTACK_INVALID
+    ATTACK_MISS
+    ATTACK_HIT
+    ATTACK_SUNK
+end
+
+@enum PublicCellState begin
+    UNKNOWN
+    WATER
+    DAMAGED
+    SUNK
+    PUBLIC_REEF
 end
 
 const TerrainType = TerrainKind
@@ -168,6 +208,23 @@ mutable struct PositioningBoard
     terrain::TerrainLayout
     placements::Vector{ShipPlacement}
     next_id::Int
+end
+
+struct AttackResult
+    valid::Bool
+    outcome::AttackOutcome
+    row::Int
+    column::Int
+    message::String
+end
+
+mutable struct CombatMatch
+    player_board::PositioningBoard
+    computer_board::PositioningBoard
+    player_attacks::Set{Tuple{Int, Int}}
+    computer_attacks::Set{Tuple{Int, Int}}
+    turn::Participant
+    winner::Union{Nothing, Participant}
 end
 
 PositioningBoard(
@@ -676,6 +733,108 @@ end
 """Indica se jogador e computador já podem iniciar a batalha."""
 battle_ready(player_board::PositioningBoard, computer_board::PositioningBoard) =
     all_ships_placed(player_board) && all_ships_placed(computer_board)
+
+"""Cria uma partida pronta para combate, sem qualquer dependência da interface."""
+function create_combat_match(
+    player_board::PositioningBoard,
+    computer_board::PositioningBoard,
+)
+    battle_ready(player_board, computer_board) ||
+        throw(ArgumentError("As duas frotas devem estar completas antes do combate."))
+    player_board.dimension == computer_board.dimension ||
+        throw(ArgumentError("Os tabuleiros da partida devem ter a mesma dimensão."))
+    return CombatMatch(
+        player_board,
+        computer_board,
+        Set{Tuple{Int, Int}}(),
+        Set{Tuple{Int, Int}}(),
+        PLAYER,
+        nothing,
+    )
+end
+
+attacks_by(match::CombatMatch, participant::Participant) =
+    participant == PLAYER ? match.player_attacks : match.computer_attacks
+
+target_board(match::CombatMatch, participant::Participant) =
+    participant == PLAYER ? match.computer_board : match.player_board
+
+opponent(participant::Participant) = participant == PLAYER ? COMPUTER : PLAYER
+
+function ship_sunk(placement::ShipPlacement, attacks::Set{Tuple{Int, Int}})
+    return all(cell -> cell in attacks, placement_cells(placement))
+end
+
+function fleet_destroyed(board::PositioningBoard, attacks::Set{Tuple{Int, Int}})
+    return all(placement -> ship_sunk(placement, attacks), board.placements)
+end
+
+"""Processa um ataque básico. Tentativas inválidas não alteram o turno."""
+function attack!(match::CombatMatch, participant::Participant, row::Int, column::Int)
+    if !isnothing(match.winner)
+        return AttackResult(false, ATTACK_INVALID, row, column, "A partida já terminou.")
+    end
+    if match.turn != participant
+        return AttackResult(false, ATTACK_INVALID, row, column, "Não é o turno deste participante.")
+    end
+
+    board = target_board(match, participant)
+    attacks = attacks_by(match, participant)
+    cell = (row, column)
+    if !(1 <= row <= board.dimension && 1 <= column <= board.dimension)
+        return AttackResult(false, ATTACK_INVALID, row, column, "A coordenada está fora do tabuleiro.")
+    end
+    if cell in board.terrain.reefs
+        return AttackResult(false, ATTACK_INVALID, row, column, "Recifes não aceitam ataque básico.")
+    end
+    if cell in attacks
+        return AttackResult(false, ATTACK_INVALID, row, column, "Esta coordenada já foi processada.")
+    end
+
+    push!(attacks, cell)
+    placement = ship_at(board, row, column)
+    if isnothing(placement)
+        match.turn = opponent(participant)
+        return AttackResult(true, ATTACK_MISS, row, column, "Água. O turno passou ao adversário.")
+    end
+
+    if ship_sunk(placement, attacks)
+        if fleet_destroyed(board, attacks)
+            match.winner = participant
+        end
+        return AttackResult(true, ATTACK_SUNK, row, column, "Embarcação afundada.")
+    end
+    return AttackResult(true, ATTACK_HIT, row, column, "Acerto. O participante continua no turno.")
+end
+
+"""Expõe o estado observável de uma casa sem tipos de Gtk4."""
+function public_cell(match::CombatMatch, owner::Participant, row::Int, column::Int)
+    board = owner == PLAYER ? match.player_board : match.computer_board
+    attacks = owner == PLAYER ? match.computer_attacks : match.player_attacks
+    cell = (row, column)
+    cell in board.terrain.reefs && return PUBLIC_REEF
+    cell in attacks || return UNKNOWN
+    placement = ship_at(board, row, column)
+    isnothing(placement) && return WATER
+    return ship_sunk(placement, attacks) ? SUNK : DAMAGED
+end
+
+"""Executa toda a sequência automática do computador, até errar ou encerrar a partida."""
+function computer_turn!(match::CombatMatch; rng=Random.default_rng())
+    results = AttackResult[]
+    while isnothing(match.winner) && match.turn == COMPUTER
+        board = match.player_board
+        candidates = [
+            (row, column) for row in 1:board.dimension for column in 1:board.dimension
+            if !((row, column) in board.terrain.reefs) &&
+               !((row, column) in match.computer_attacks)
+        ]
+        isempty(candidates) && break
+        row, column = rand(rng, candidates)
+        push!(results, attack!(match, COMPUTER, row, column))
+    end
+    return results
+end
 
 """Remove uma embarcação pelo identificador público da posição."""
 function remove_ship!(board::PositioningBoard, id::Int)

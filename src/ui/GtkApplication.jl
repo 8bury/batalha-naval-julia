@@ -93,33 +93,117 @@ function ready_page(
     player_board::PositioningBoard,
     computer_board::PositioningBoard,
 )
-    option = map_option(configuration.map)
-    terrain = configuration.special_terrain ? "habilitados" : "desabilitados"
-    summary = "Jogador: $(configuration.player_name)\n" *
-              "Mapa: $(option.name) ($(option.dimension)×$(option.dimension))\n" *
-              "Frota: $(fleet_text(option))\n" *
-              "Terrenos especiais: $terrain"
+    return battle_page(window, configuration, player_board, computer_board)
+end
 
-    page = configure_container!(GtkBox(:v))
-    push!(page, title_label("Configuração pronta"))
-    push!(page, styled!(GtkLabel(summary; wrap=true, xalign=0), "info-card"))
-    push!(
-        page,
-        styled!(
-            GtkLabel("A frota foi posicionada e está pronta para a batalha."; wrap=true, xalign=0),
-            "muted-card",
-        ),
-    )
+function combat_cell_appearance(match, owner, board, row, column)
+    state = public_cell(match, owner, row, column)
+    terrain = terrain_at(board, row, column)
+    state == WATER && return ("○", "Água", "combat-water")
+    state == DAMAGED && return ("×", "Embarcação atingida", "combat-damaged")
+    state == SUNK && return ("■", "Embarcação afundada", "combat-sunk")
+    state == PUBLIC_REEF && return (terrain_symbol(REEF), terrain_tooltip(REEF), "cell-reef")
+    if owner == PLAYER
+        placement = ship_at(board, row, column)
+        !isnothing(placement) && return (ship_symbol(placement.ship_type), ship_label(placement.ship_type), "cell-occupied")
+    end
+    terrain == SHALLOW_WATER && return (terrain_symbol(SHALLOW_WATER), terrain_tooltip(SHALLOW_WATER), "cell-shallow-water")
+    return ("·", "Casa ainda desconhecida", "cell-empty")
+end
 
-    push!(
-        page,
-        navigation_button(
-            window,
-            "Alterar Posicionamento",
-            () -> positioning_page(window, configuration, player_board, computer_board),
-        ),
-    )
-    push!(page, navigation_button(window, "Menu Principal", () -> main_menu(window)))
+function battle_page(window, configuration, player_board, computer_board)
+    match = create_combat_match(player_board, computer_board)
+    page = configure_container!(GtkBox(:v); spacing=14)
+    page.width_request = 1180
+    page.height_request = 700
+    push!(page, title_label("Batalha naval"))
+    status = styled!(GtkLabel("Seu turno — escolha uma coordenada no tabuleiro inimigo."; wrap=true, xalign=0), "combat-status")
+    push!(page, status)
+    boards = GtkBox(:h)
+    boards.spacing = 28
+    boards.hexpand = true
+    boards.homogeneous = true
+    push!(page, boards)
+    buttons = Dict{Participant, Matrix{Any}}()
+
+    for (owner, heading, board) in ((PLAYER, "Sua frota", player_board), (COMPUTER, "Frota inimiga", computer_board))
+        box = GtkBox(:v)
+        box.spacing = 8
+        box.hexpand = true
+        push!(box, field_label(heading))
+        grid = GtkGrid()
+        grid.row_spacing = 3
+        grid.column_spacing = 3
+        grid.halign = Gtk4.Align_CENTER
+        push!(box, grid)
+        push!(boards, box)
+        grid[1, 1] = styled!(GtkLabel(""), "board-header")
+        for column in 1:board.dimension
+            grid[column + 1, 1] = styled!(GtkLabel(string(Char(Int('A') + column - 1))), "board-header")
+        end
+        owner_buttons = Matrix{Any}(undef, board.dimension, board.dimension)
+        buttons[owner] = owner_buttons
+        for row in 1:board.dimension
+            grid[1, row + 1] = styled!(GtkLabel(string(row)), "board-header")
+            for column in 1:board.dimension
+                button = styled!(GtkButton("·"), "board-cell", "cell-empty")
+                button.width_request = 42
+                button.height_request = 42
+                owner_buttons[row, column] = button
+                grid[column + 1, row + 1] = button
+            end
+        end
+    end
+
+    function render_combat!()
+        for (owner, board) in ((PLAYER, player_board), (COMPUTER, computer_board))
+            for row in 1:board.dimension, column in 1:board.dimension
+                button = buttons[owner][row, column]
+                reset_board_cell_style!(button)
+                label, tooltip, css_class = combat_cell_appearance(match, owner, board, row, column)
+                button.label = label
+                button.tooltip_text = "$(Char(Int('A') + column - 1))$row — $tooltip"
+                add_css_class(button, css_class)
+                button.sensitive = owner == COMPUTER && isnothing(match.winner) && match.turn == PLAYER &&
+                    public_cell(match, COMPUTER, row, column) == UNKNOWN && terrain_at(computer_board, row, column) != REEF
+            end
+        end
+    end
+
+    function report!(player_result, computer_results)
+        if match.winner == PLAYER
+            status.label = "Vitória! A frota inimiga foi destruída."
+            add_css_class(status, "combat-victory")
+        elseif match.winner == COMPUTER
+            status.label = "Derrota. Sua frota foi destruída."
+            add_css_class(status, "combat-defeat")
+        elseif player_result.outcome == ATTACK_MISS
+            hits = count(result -> result.outcome != ATTACK_MISS, computer_results)
+            status.label = hits == 0 ? "Água dos dois lados. Seu turno." : "O computador acertou $hits vez(es) e então errou. Seu turno."
+        elseif player_result.outcome == ATTACK_SUNK
+            status.label = "Embarcação inimiga afundada! Você continua no turno."
+        else
+            status.label = "Acerto! Você continua no turno."
+        end
+    end
+
+    for row in 1:computer_board.dimension, column in 1:computer_board.dimension
+        let row = row, column = column
+            signal_connect(buttons[COMPUTER][row, column], "clicked") do _
+                result = attack!(match, PLAYER, row, column)
+                if result.valid
+                    computer_results = result.outcome == ATTACK_MISS ? computer_turn!(match) : AttackResult[]
+                    report!(result, computer_results)
+                    render_combat!()
+                else
+                    status.label = result.message
+                end
+            end
+        end
+    end
+    push!(page, styled!(GtkLabel("○ = água   × = dano   ■ = afundado"; xalign=0), "board-legend"))
+    push!(page, navigation_button(window, "Menu Principal", () -> main_menu(window); style="quiet-action", expand=false))
+    render_combat!()
     return page
 end
 
@@ -133,6 +217,9 @@ function reset_board_cell_style!(button)
             "cell-preview-invalid",
             "cell-reef",
             "cell-shallow-water",
+            "combat-water",
+            "combat-damaged",
+            "combat-sunk",
         ),
     )
     return button
