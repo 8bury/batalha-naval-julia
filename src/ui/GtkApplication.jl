@@ -113,6 +113,7 @@ end
 
 function battle_page(window, configuration, player_board, computer_board)
     match = create_combat_match(player_board, computer_board)
+    computer_strategy = ComputerStrategy()
     page = configure_container!(GtkBox(:v); spacing=14)
     page.width_request = 1180
     page.height_request = 700
@@ -170,16 +171,12 @@ function battle_page(window, configuration, player_board, computer_board)
         end
     end
 
-    function report!(player_result, computer_results)
+    function report_player!(player_result)
         if match.winner == PLAYER
             status.label = "Vitória! A frota inimiga foi destruída."
             add_css_class(status, "combat-victory")
-        elseif match.winner == COMPUTER
-            status.label = "Derrota. Sua frota foi destruída."
-            add_css_class(status, "combat-defeat")
         elseif player_result.outcome == ATTACK_MISS
-            hits = count(result -> result.outcome != ATTACK_MISS, computer_results)
-            status.label = hits == 0 ? "Água dos dois lados. Seu turno." : "O computador acertou $hits vez(es) e então errou. Seu turno."
+            status.label = "Água. O computador está escolhendo um alvo…"
         elseif player_result.outcome == ATTACK_SUNK
             status.label = "Embarcação inimiga afundada! Você continua no turno."
         else
@@ -187,14 +184,33 @@ function battle_page(window, configuration, player_board, computer_board)
         end
     end
 
+    function schedule_computer_turn!()
+        Gtk4.GLib.g_timeout_add(600) do
+            result = computer_attack!(match, computer_strategy)
+            if match.winner == COMPUTER
+                status.label = "Derrota. Sua frota foi destruída."
+                add_css_class(status, "combat-defeat")
+            elseif result.outcome == ATTACK_MISS
+                status.label = "O computador errou. Seu turno."
+            elseif result.outcome == ATTACK_SUNK
+                status.label = "O computador afundou uma embarcação e continua atacando…"
+            else
+                status.label = "O computador acertou e continua atacando…"
+            end
+            render_combat!()
+            return isnothing(match.winner) && match.turn == COMPUTER
+        end
+        return nothing
+    end
+
     for row in 1:computer_board.dimension, column in 1:computer_board.dimension
         let row = row, column = column
             signal_connect(buttons[COMPUTER][row, column], "clicked") do _
                 result = attack!(match, PLAYER, row, column)
                 if result.valid
-                    computer_results = result.outcome == ATTACK_MISS ? computer_turn!(match) : AttackResult[]
-                    report!(result, computer_results)
+                    report_player!(result)
                     render_combat!()
+                    result.outcome == ATTACK_MISS && schedule_computer_turn!()
                 else
                     status.label = result.message
                 end
