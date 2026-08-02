@@ -111,6 +111,15 @@ function combat_cell_appearance(match, owner, board, row, column)
     return ("·", "Casa ainda desconhecida", "cell-empty")
 end
 
+function schedule_computer_attacks!(match, strategy, report_result!; interval_ms=600)
+    Gtk4.GLib.g_timeout_add(interval_ms) do
+        result = computer_attack!(match, strategy)
+        report_result!(result)
+        return isnothing(match.winner) && match.turn == COMPUTER
+    end
+    return nothing
+end
+
 function battle_page(window, configuration, player_board, computer_board)
     match = create_combat_match(player_board, computer_board)
     computer_strategy = ComputerStrategy()
@@ -185,8 +194,7 @@ function battle_page(window, configuration, player_board, computer_board)
     end
 
     function schedule_computer_turn!()
-        Gtk4.GLib.g_timeout_add(600) do
-            result = computer_attack!(match, computer_strategy)
+        schedule_computer_attacks!(match, computer_strategy) do result
             if match.winner == COMPUTER
                 status.label = "Derrota. Sua frota foi destruída."
                 add_css_class(status, "combat-defeat")
@@ -198,7 +206,6 @@ function battle_page(window, configuration, player_board, computer_board)
                 status.label = "O computador acertou e continua atacando…"
             end
             render_combat!()
-            return isnothing(match.winner) && match.turn == COMPUTER
         end
         return nothing
     end

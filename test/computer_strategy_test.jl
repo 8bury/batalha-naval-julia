@@ -81,4 +81,31 @@ end
         @test result.valid
         @test length(match.computer_attacks) == 1
     end
+
+    @testset "frotas ocultas diferentes nao alteram a decisao" begin
+        first_player = combat_board(ships=[
+            ShipPlacement(1, PATROL, 1, 1, HORIZONTAL),
+            ShipPlacement(2, SUBMARINE, 2, 1, HORIZONTAL),
+            ShipPlacement(3, CRUISER, 3, 1, HORIZONTAL),
+        ])
+        second_player = combat_board(ships=[
+            ShipPlacement(1, PATROL, 5, 5, HORIZONTAL),
+            ShipPlacement(2, SUBMARINE, 4, 1, HORIZONTAL),
+            ShipPlacement(3, CRUISER, 1, 2, HORIZONTAL),
+        ])
+        enemy = combat_board(ships=[
+            ShipPlacement(1, PATROL, 1, 1, HORIZONTAL),
+            ShipPlacement(2, SUBMARINE, 2, 1, HORIZONTAL),
+            ShipPlacement(3, CRUISER, 3, 1, HORIZONTAL),
+        ])
+        first_match = create_combat_match(first_player, enemy)
+        second_match = create_combat_match(second_player, deepcopy(enemy))
+        first_match.turn = COMPUTER
+        second_match.turn = COMPUTER
+
+        first = computer_attack!(first_match, ComputerStrategy(); rng=MersenneTwister(23))
+        second = computer_attack!(second_match, ComputerStrategy(); rng=MersenneTwister(23))
+
+        @test (first.row, first.column) == (second.row, second.column)
+    end
 end
