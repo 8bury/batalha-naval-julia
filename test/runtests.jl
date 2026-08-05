@@ -22,6 +22,8 @@ import BatalhaNaval: FleetComposition,
                        place_ship!,
                        placement_cells,
                        player_attack!,
+                       missile_preview,
+                       player_missile!,
                        positioned_ships,
                        preview_placement,
                        reef_cells,
@@ -45,6 +47,7 @@ include("automatic_positioning_test.jl")
 include("special_terrain_test.jl")
 include("combat_test.jl")
 include("economy_test.jl")
+include("missile_test.jl")
 include("computer_strategy_test.jl")
 include("controller_test.jl")
 include("computer_turn_step_test.jl")

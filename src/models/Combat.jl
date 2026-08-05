@@ -160,3 +160,42 @@ combat_update(match::CombatMatch, result::AttackResult) =
 function player_attack!(match::CombatMatch, row::Int, column::Int)
     return combat_update(match, resolve_attack!(match, PLAYER, row, column))
 end
+
+function missile_preview(dimension::Int, row::Int, column::Int)
+    cells = [(row + row_offset, column + column_offset) for row_offset in 0:1 for column_offset in 0:1]
+    return MissilePreview(all(cell -> 1 <= cell[1] <= dimension && 1 <= cell[2] <= dimension, cells), cells)
+end
+
+function resolve_missile!(match::CombatMatch, participant::Participant, row::Int, column::Int)
+    empty_result(rejection) = MissileResult(false, row, column, Tuple{Int, Int}[], 0, 0, rejection)
+    !isnothing(match.winner) && return empty_result(MATCH_FINISHED)
+    match.turn == participant || return empty_result(WRONG_TURN)
+    match.inventories[participant][MISSILE] > 0 || return empty_result(WEAPON_UNAVAILABLE)
+
+    board = target_board(match, participant)
+    preview = missile_preview(board.dimension, row, column)
+    preview.valid || return empty_result(OUT_OF_BOUNDS)
+    attacks = attacks_by(match, participant)
+    cells = filter(cell -> cell ∉ board.terrain.reefs && cell ∉ attacks, preview.cells)
+    isempty(cells) && return empty_result(NO_ATTACKABLE_CELLS)
+
+    sunk_before = count(placement -> ship_sunk(placement, attacks), board.placements)
+    union!(attacks, cells)
+    hits = count(cell -> !isnothing(ship_at(board, cell...)), cells)
+    sunk = count(placement -> ship_sunk(placement, attacks), board.placements) - sunk_before
+    match.coins[participant] += 10 * (hits + sunk)
+    match.inventories[participant][MISSILE] -= 1
+    match.shop_available[participant] = false
+    if fleet_destroyed(board, attacks)
+        match.winner = participant
+    elseif hits == 0
+        match.turn = opponent(participant)
+        match.shop_available[match.turn] = true
+    end
+    return MissileResult(true, row, column, cells, hits, sunk, nothing)
+end
+
+function player_missile!(match::CombatMatch, row::Int, column::Int)
+    result = resolve_missile!(match, PLAYER, row, column)
+    return MissileUpdate(result, combat_state(match), combat_directive(match))
+end

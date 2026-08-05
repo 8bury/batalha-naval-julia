@@ -203,6 +203,18 @@ button.cell-reef:hover {
     border-color: #a2bac2;
 }
 
+button.missile-preview {
+  outline: 3px solid #f5a623;
+  outline-offset: -3px;
+  background: rgba(245, 166, 35, 0.28);
+}
+
+button.missile-preview-invalid {
+  outline: 3px solid #d64545;
+  outline-offset: -3px;
+  background: rgba(214, 69, 69, 0.22);
+}
+
 button.cell-shallow-water {
     background: #16465b;
     border: 1px solid #4f9ab2;

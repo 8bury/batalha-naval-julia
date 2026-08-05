@@ -49,6 +49,8 @@ end
     OUT_OF_BOUNDS
     REEF_TARGET
     ALREADY_ATTACKED
+    WEAPON_UNAVAILABLE
+    NO_ATTACKABLE_CELLS
 end
 
 @enum CombatDirective begin
@@ -207,6 +209,27 @@ end
 
 struct CombatUpdate
     result::AttackResult
+    state::CombatState
+    directive::CombatDirective
+end
+
+struct MissilePreview
+    valid::Bool
+    cells::Vector{Tuple{Int, Int}}
+end
+
+struct MissileResult
+    valid::Bool
+    row::Int
+    column::Int
+    cells::Vector{Tuple{Int, Int}}
+    hits::Int
+    sunk::Int
+    rejection::Union{Nothing, AttackRejection}
+end
+
+struct MissileUpdate
+    result::MissileResult
     state::CombatState
     directive::CombatDirective
 end
