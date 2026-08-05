@@ -1,5 +1,5 @@
 @testset "tema da interface" begin
-    theme_path = joinpath(@__DIR__, "..", "src", "ui", "theme.css")
+    theme_path = joinpath(@__DIR__, "..", "src", "views", "theme.css")
     css = read(theme_path, String)
 
     @test isnothing(match(r"(?m)^button\s*\{", css))

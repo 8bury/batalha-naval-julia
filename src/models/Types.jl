@@ -1,0 +1,209 @@
+@enum MapKind begin
+    PUDDLE
+    LAKE
+    OCEAN
+end
+
+@enum Orientation begin
+    HORIZONTAL
+    VERTICAL
+end
+
+@enum ShipType begin
+    PATROL
+    SUBMARINE
+    CRUISER
+end
+
+@enum TerrainKind begin
+    REEF
+    SHALLOW_WATER
+end
+
+@enum Participant begin
+    PLAYER
+    COMPUTER
+end
+
+@enum AttackOutcome begin
+    ATTACK_INVALID
+    ATTACK_MISS
+    ATTACK_HIT
+    ATTACK_SUNK
+end
+
+@enum AttackRejection begin
+    MATCH_FINISHED
+    WRONG_TURN
+    OUT_OF_BOUNDS
+    REEF_TARGET
+    ALREADY_ATTACKED
+end
+
+@enum CombatDirective begin
+    AWAIT_PLAYER
+    CONTINUE_COMPUTER_TURN
+    END_COMBAT
+end
+
+@enum PublicCellState begin
+    UNKNOWN
+    WATER
+    DAMAGED
+    SUNK
+    PUBLIC_REEF
+end
+
+struct FleetComposition
+    patrols::Int
+    submarines::Int
+    cruisers::Int
+end
+
+struct TerrainLimits
+    max_reefs::Int
+    max_shallow_waters::Int
+end
+
+struct TerrainLayout
+    dimension::Int
+    reefs::Set{Tuple{Int, Int}}
+    shallow_waters::Set{Tuple{Int, Int}}
+
+    function TerrainLayout(dimension::Int, reefs, shallow_waters)
+        dimension > 0 || throw(ArgumentError("A dimensão do terreno deve ser positiva."))
+        normalized_reefs = Set{Tuple{Int, Int}}(reefs)
+        normalized_shallow_waters = Set{Tuple{Int, Int}}(shallow_waters)
+        all_cells = vcat(collect(normalized_reefs), collect(normalized_shallow_waters))
+        all(
+            cell -> 1 <= cell[1] <= dimension && 1 <= cell[2] <= dimension,
+            all_cells,
+        ) || throw(ArgumentError("Terrenos especiais devem ficar dentro do mapa."))
+        isempty(intersect(normalized_reefs, normalized_shallow_waters)) ||
+            throw(ArgumentError("Recifes e águas rasas não podem ocupar a mesma casa."))
+        return new(dimension, normalized_reefs, normalized_shallow_waters)
+    end
+end
+
+function Base.:(==)(left::TerrainLayout, right::TerrainLayout)
+    return left.dimension == right.dimension &&
+           left.reefs == right.reefs &&
+           left.shallow_waters == right.shallow_waters
+end
+
+struct MapOption
+    kind::MapKind
+    name::String
+    dimension::Int
+    fleet::FleetComposition
+end
+
+struct NameValidation
+    valid::Bool
+    normalized::String
+    message::String
+end
+
+struct ShipPlacement
+    id::Int
+    ship_type::ShipType
+    start_row::Int
+    start_column::Int
+    orientation::Orientation
+end
+
+struct PlacementPreview
+    valid::Bool
+    cells::Vector{Tuple{Int, Int}}
+    message::String
+end
+
+struct AutoPlacementResult
+    success::Bool
+    message::String
+    placed::Vector{ShipPlacement}
+end
+
+mutable struct PositioningBoard
+    map::MapKind
+    dimension::Int
+    fleet::FleetComposition
+    terrain::TerrainLayout
+    placements::Vector{ShipPlacement}
+    next_id::Int
+end
+
+struct AttackResult
+    valid::Bool
+    outcome::AttackOutcome
+    row::Int
+    column::Int
+    rejection::Union{Nothing, AttackRejection}
+end
+
+mutable struct ComputerStrategy
+    pending_hits::Set{Tuple{Int, Int}}
+end
+
+ComputerStrategy() = ComputerStrategy(Set{Tuple{Int, Int}}())
+
+mutable struct CombatMatch
+    player_board::PositioningBoard
+    computer_board::PositioningBoard
+    player_attacks::Set{Tuple{Int, Int}}
+    computer_attacks::Set{Tuple{Int, Int}}
+    turn::Participant
+    winner::Union{Nothing, Participant}
+    computer_strategy::ComputerStrategy
+end
+
+struct CombatCellState
+    public_state::PublicCellState
+    terrain::Union{Nothing, TerrainKind}
+    own_ship_type::Union{Nothing, ShipType}
+end
+
+struct CombatState
+    dimension::Int
+    player_cells::Matrix{CombatCellState}
+    computer_cells::Matrix{CombatCellState}
+    turn::Participant
+    winner::Union{Nothing, Participant}
+end
+
+struct CombatUpdate
+    result::AttackResult
+    state::CombatState
+    directive::CombatDirective
+end
+
+PositioningBoard(
+    map::MapKind,
+    dimension::Int,
+    fleet::FleetComposition,
+    placements::Vector{ShipPlacement},
+    next_id::Int,
+) = PositioningBoard(
+    map,
+    dimension,
+    fleet,
+    empty_terrain_layout(dimension),
+    placements,
+    next_id,
+)
+
+struct MatchConfiguration
+    player_name::String
+    map::MapKind
+    special_terrain::Bool
+
+    function MatchConfiguration(
+        raw_name::AbstractString,
+        map::MapKind,
+        special_terrain::Bool,
+    )
+        validation = validate_player_name(raw_name)
+        validation.valid || throw(ArgumentError(validation.message))
+        return new(validation.normalized, map, special_terrain)
+    end
+end

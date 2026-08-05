@@ -1,0 +1,56 @@
+export AttackRejection,
+       CombatCellState,
+       CombatState,
+       CombatUpdate,
+       Participant,
+       PLAYER,
+       COMPUTER,
+       ATTACK_MISS,
+       ATTACK_HIT,
+       ATTACK_SUNK,
+       MATCH_FINISHED,
+       WRONG_TURN,
+       OUT_OF_BOUNDS,
+       REEF_TARGET,
+       ALREADY_ATTACKED,
+       AWAIT_PLAYER,
+       CONTINUE_COMPUTER_TURN,
+       END_COMBAT,
+       PublicCellState,
+       UNKNOWN,
+       WATER,
+       DAMAGED,
+       SUNK,
+       PUBLIC_REEF,
+       LAKE,
+       OCEAN,
+       PUDDLE,
+       MatchConfiguration,
+       MapKind,
+       MapOption,
+       Orientation,
+       HORIZONTAL,
+       VERTICAL,
+       ShipType,
+       PATROL,
+       SUBMARINE,
+       CRUISER,
+       TerrainKind,
+       REEF,
+       SHALLOW_WATER,
+       create_match_configuration,
+       map_options,
+       ship_label,
+       ship_symbol,
+       terrain_symbol,
+       terrain_tooltip,
+       validate_player_name
+
+# Implementações coesas do Model, carregadas na ordem de dependência.
+include("Types.jl")
+include("Configuration.jl")
+include("FleetPlacement.jl")
+include("Terrain.jl")
+include("Positioning.jl")
+include("Combat.jl")
+include("ComputerStrategy.jl")

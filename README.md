@@ -1,7 +1,5 @@
 # Batalha Naval
 
-Aplicativo desktop em Julia com interface Gtk4. O projeto usa Julia 1.12.6 e mantém a lógica de domínio independente da interface gráfica.
-
 ## Requisitos
 
 - Julia 1.12.6 disponível no `PATH`.

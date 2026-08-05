@@ -16,8 +16,8 @@ end
             (3, 3) => SUNK,
         ])
 
-        first_choice = choose_attack(ComputerStrategy(), knowledge; rng=MersenneTwister(17))
-        repeated_choice = choose_attack(ComputerStrategy(), knowledge; rng=MersenneTwister(17))
+        first_choice = BatalhaNaval.choose_attack(BatalhaNaval.ComputerStrategy(), knowledge; rng=MersenneTwister(17))
+        repeated_choice = BatalhaNaval.choose_attack(BatalhaNaval.ComputerStrategy(), knowledge; rng=MersenneTwister(17))
 
         @test first_choice == repeated_choice
         @test knowledge[first_choice...] == UNKNOWN
@@ -30,10 +30,10 @@ end
             (3, 2) => WATER,
             (4, 3) => WATER,
         ])
-        strategy = ComputerStrategy()
-        record_attack!(strategy, (3, 3), ATTACK_HIT, knowledge)
+        strategy = BatalhaNaval.ComputerStrategy()
+        BatalhaNaval.record_attack!(strategy, (3, 3), ATTACK_HIT, knowledge)
 
-        @test choose_attack(strategy, knowledge; rng=MersenneTwister(1)) == (3, 4)
+        @test BatalhaNaval.choose_attack(strategy, knowledge; rng=MersenneTwister(1)) == (3, 4)
     end
 
     @testset "acertos alinhados continuam na direcao conhecida" begin
@@ -42,24 +42,23 @@ end
             (3, 3) => DAMAGED,
             (3, 1) => WATER,
         ])
-        strategy = ComputerStrategy()
-        record_attack!(strategy, (3, 2), ATTACK_HIT, knowledge)
-        record_attack!(strategy, (3, 3), ATTACK_HIT, knowledge)
+        strategy = BatalhaNaval.ComputerStrategy()
+        BatalhaNaval.record_attack!(strategy, (3, 2), ATTACK_HIT, knowledge)
+        BatalhaNaval.record_attack!(strategy, (3, 3), ATTACK_HIT, knowledge)
 
-        @test choose_attack(strategy, knowledge; rng=MersenneTwister(1)) == (3, 4)
+        @test BatalhaNaval.choose_attack(strategy, knowledge; rng=MersenneTwister(1)) == (3, 4)
     end
 
     @testset "afundamento encerra a perseguicao correspondente" begin
-        strategy = ComputerStrategy()
+        strategy = BatalhaNaval.ComputerStrategy()
         damaged = public_knowledge(states=[(2, 2) => DAMAGED, (2, 3) => DAMAGED])
-        record_attack!(strategy, (2, 2), ATTACK_HIT, damaged)
-        record_attack!(strategy, (2, 3), ATTACK_HIT, damaged)
+        BatalhaNaval.record_attack!(strategy, (2, 2), ATTACK_HIT, damaged)
+        BatalhaNaval.record_attack!(strategy, (2, 3), ATTACK_HIT, damaged)
 
         sunk = public_knowledge(states=[(2, 2) => SUNK, (2, 3) => SUNK])
-        record_attack!(strategy, (2, 3), ATTACK_SUNK, sunk)
+        BatalhaNaval.record_attack!(strategy, (2, 3), ATTACK_SUNK, sunk)
 
-        @test isempty(strategy.pending_hits)
-        @test sunk[choose_attack(strategy, sunk; rng=MersenneTwister(9))...] == UNKNOWN
+        @test sunk[BatalhaNaval.choose_attack(strategy, sunk; rng=MersenneTwister(9))...] == UNKNOWN
     end
 
     @testset "cada chamada aplica somente um ataque usando a visao publica" begin
@@ -74,12 +73,13 @@ end
             ShipPlacement(3, CRUISER, 3, 1, HORIZONTAL),
         ])
         match = create_combat_match(player, enemy)
-        match.turn = COMPUTER
+        @test player_attack!(match, 1, 1).directive == CONTINUE_COMPUTER_TURN
 
-        result = computer_attack!(match, ComputerStrategy(); rng=MersenneTwister(4))
+        before = combat_state(match)
+        update = computer_step!(match; rng=MersenneTwister(4))
 
-        @test result.valid
-        @test length(match.computer_attacks) == 1
+        @test update.result.valid
+        @test observed_attacks(update.state, PLAYER) == observed_attacks(before, PLAYER) + 1
     end
 
     @testset "frotas ocultas diferentes nao alteram a decisao" begin
@@ -100,11 +100,11 @@ end
         ])
         first_match = create_combat_match(first_player, enemy)
         second_match = create_combat_match(second_player, deepcopy(enemy))
-        first_match.turn = COMPUTER
-        second_match.turn = COMPUTER
+        @test player_attack!(first_match, 5, 5).directive == CONTINUE_COMPUTER_TURN
+        @test player_attack!(second_match, 5, 5).directive == CONTINUE_COMPUTER_TURN
 
-        first = computer_attack!(first_match, ComputerStrategy(); rng=MersenneTwister(23))
-        second = computer_attack!(second_match, ComputerStrategy(); rng=MersenneTwister(23))
+        first = computer_step!(first_match; rng=MersenneTwister(23)).result
+        second = computer_step!(second_match; rng=MersenneTwister(23)).result
 
         @test (first.row, first.column) == (second.row, second.column)
     end

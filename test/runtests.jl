@@ -1,5 +1,37 @@
 using Test
 using BatalhaNaval
+import BatalhaNaval: FleetComposition,
+                       PositioningBoard,
+                       ShipPlacement,
+                       TerrainLayout,
+                       all_ships_placed,
+                       auto_place_ships!,
+                       available_ships,
+                       battle_ready,
+                       clear_board!,
+                       combat_state,
+                       computer_step!,
+                       create_combat_match,
+                       create_match_boards,
+                       create_positioning_board,
+                       create_terrain_layout,
+                       map_option,
+                       max_reefs,
+                       max_shallow_waters,
+                       place_ship!,
+                       placement_cells,
+                       player_attack!,
+                       positioned_ships,
+                       preview_placement,
+                       reef_cells,
+                       remove_ship_at!,
+                       shallow_water_cells,
+                       ship_at,
+                       terrain_at,
+                       terrain_cells,
+                       terrain_label,
+                       terrain_layout_supports_fleet,
+                       terrain_limits
 
 @testset "domínio independente da interface" begin
     loaded_package_names = (package.name for package in keys(Base.loaded_modules))
@@ -12,5 +44,7 @@ include("automatic_positioning_test.jl")
 include("special_terrain_test.jl")
 include("combat_test.jl")
 include("computer_strategy_test.jl")
+include("controller_test.jl")
+include("computer_turn_step_test.jl")
 include("theme_css_test.jl")
 include("font_rendering_test.jl")

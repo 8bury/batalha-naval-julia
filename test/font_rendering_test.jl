@@ -1,6 +1,6 @@
 @testset "renderização de fontes no Windows" begin
     launcher_path = joinpath(@__DIR__, "..", "bin", "batalha-naval.jl")
-    application_path = joinpath(@__DIR__, "..", "src", "ui", "GtkApplication.jl")
+    application_path = joinpath(@__DIR__, "..", "src", "views", "GtkApplication.jl")
     launcher = read(launcher_path, String)
     application = read(application_path, String)
 

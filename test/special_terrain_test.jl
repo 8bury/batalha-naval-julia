@@ -38,7 +38,7 @@ using Random
 
         @test player_board.terrain == computer_board.terrain
         @test terrain_cells(player_board) == terrain_cells(computer_board)
-        @test create_positioning_boards(configuration; rng=MersenneTwister(22))[1].terrain ==
+        @test create_match_boards(configuration; rng=MersenneTwister(22))[1].terrain ==
               player_board.terrain
 
         classic = create_match_configuration("Ana", LAKE; special_terrain=false)
