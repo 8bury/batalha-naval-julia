@@ -19,14 +19,52 @@ function attack_rejection_message(rejection::AttackRejection)
     throw(ArgumentError("Rejeição de ataque sem mensagem: $rejection"))
 end
 
+function purchase_rejection_message(rejection::PurchaseRejection)
+    rejection == SHOP_CLOSED && return "A loja só abre no início do seu turno."
+    rejection == INSUFFICIENT_FUNDS && return "Saldo insuficiente para esta compra."
+    rejection == QUOTA_EXHAUSTED && return "A cota desta arma acabou neste mapa."
+    throw(ArgumentError("Rejeição de compra sem mensagem: $rejection"))
+end
+
 function battle_page(window, controller::CombatController)
     initial_state = combat_state(controller)
     page = configure_container!(GtkBox(:v); spacing=14)
     page.width_request = 1180
     page.height_request = 700
     push!(page, title_label("Batalha naval"))
+    battle_bar = GtkBox(:h)
+    battle_bar.spacing = 18
+    turn_indicator = styled!(GtkLabel(""; xalign=0, hexpand=true), "battle-indicator")
+    balance_indicator = styled!(GtkLabel(""; xalign=1), "battle-balance")
+    shop_button = styled!(GtkButton("Abrir loja"), "secondary-action")
+    push!(battle_bar, turn_indicator)
+    push!(battle_bar, balance_indicator)
+    push!(battle_bar, shop_button)
+    push!(page, battle_bar)
     status = styled!(GtkLabel("Seu turno — escolha uma coordenada no tabuleiro inimigo."; wrap=true, xalign=0), "combat-status")
     push!(page, status)
+    shop_panel = styled!(GtkBox(:v), "shop-panel")
+    shop_panel.spacing = 8
+    shop_panel.visible = false
+    push!(shop_panel, field_label("Loja de armas"))
+    shop_rows = Dict{WeaponType, Tuple{Any, Any}}()
+    for weapon in weapons()
+        row = GtkBox(:h)
+        row.spacing = 12
+        description = GtkLabel(""; xalign=0, hexpand=true)
+        buy_button = styled!(GtkButton("Comprar"), "secondary-action")
+        push!(row, description)
+        push!(row, buy_button)
+        push!(shop_panel, row)
+        shop_rows[weapon] = (description, buy_button)
+        signal_connect(buy_button, "clicked") do _
+            purchase = buy_weapon!(controller, weapon)
+            status.label = purchase.valid ? "$(weapon_label(weapon)) adicionado ao inventário." :
+                purchase_rejection_message(purchase.rejection)
+            render_combat!()
+        end
+    end
+    push!(page, shop_panel)
     boards = GtkBox(:h)
     boards.spacing = 28
     boards.hexpand = true
@@ -47,6 +85,17 @@ function battle_page(window, controller::CombatController)
     end
 
     function render_combat!(state=combat_state(controller))
+        turn_indicator.label = state.turn == PLAYER ? "Turno: jogador" : "Turno: computador"
+        balance_indicator.label = "Saldo: $(state.player_coins) moedas"
+        shop_button.sensitive = state.shop_available
+        if !state.shop_available
+            shop_panel.visible = false
+        end
+        for item in state.shop_items
+            description, buy_button = shop_rows[item.weapon]
+            description.label = "$(weapon_label(item.weapon)) — $(item.price) moedas | cota: $(item.remaining_quota) | inventário: $(item.inventory_count)"
+            buy_button.sensitive = state.shop_available && item.remaining_quota > 0 && state.player_coins >= item.price
+        end
         for owner in (PLAYER, COMPUTER)
             cells = owner == PLAYER ? state.player_cells : state.computer_cells
             for row in 1:state.dimension, column in 1:state.dimension
@@ -60,6 +109,13 @@ function battle_page(window, controller::CombatController)
                 button.sensitive = owner == COMPUTER && isnothing(state.winner) && state.turn == PLAYER &&
                     cell.public_state == UNKNOWN && cell.terrain != REEF
             end
+        end
+    end
+
+
+    signal_connect(shop_button, "clicked") do _
+        if combat_state(controller).shop_available
+            shop_panel.visible = !shop_panel.visible
         end
     end
 

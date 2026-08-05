@@ -15,6 +15,10 @@ function create_combat_match(
         PLAYER,
         nothing,
         ComputerStrategy(),
+        Dict(PLAYER => 0, COMPUTER => 0),
+        Dict(participant => Dict(weapon => 0 for weapon in weapons()) for participant in (PLAYER, COMPUTER)),
+        Dict(participant => Dict(weapon => 0 for weapon in weapons()) for participant in (PLAYER, COMPUTER)),
+        Dict(PLAYER => true, COMPUTER => false),
     )
 end
 
@@ -57,19 +61,49 @@ function resolve_attack!(match::CombatMatch, participant::Participant, row::Int,
     end
 
     push!(attacks, cell)
+    match.shop_available[participant] = false
     placement = ship_at(board, row, column)
     if isnothing(placement)
         match.turn = opponent(participant)
+        match.shop_available[match.turn] = true
         return AttackResult(true, ATTACK_MISS, row, column, nothing)
     end
 
+    match.coins[participant] += 10
+
     if ship_sunk(placement, attacks)
+        match.coins[participant] += 10
         if fleet_destroyed(board, attacks)
             match.winner = participant
         end
         return AttackResult(true, ATTACK_SUNK, row, column, nothing)
     end
     return AttackResult(true, ATTACK_HIT, row, column, nothing)
+end
+
+function shop_items(match::CombatMatch, participant::Participant)
+    map = target_board(match, participant).map
+    return [ShopItemState(
+        weapon,
+        weapon_price(weapon),
+        weapon_quota(map, weapon) - match.purchased[participant][weapon],
+        match.inventories[participant][weapon],
+    ) for weapon in weapons()]
+end
+
+function buy_weapon!(match::CombatMatch, participant::Participant, weapon::WeaponType)
+    match.shop_available[participant] && match.turn == participant && isnothing(match.winner) ||
+        return PurchaseResult(false, weapon, SHOP_CLOSED)
+    price = weapon_price(weapon)
+    match.coins[participant] >= price ||
+        return PurchaseResult(false, weapon, INSUFFICIENT_FUNDS)
+    map = target_board(match, participant).map
+    match.purchased[participant][weapon] < weapon_quota(map, weapon) ||
+        return PurchaseResult(false, weapon, QUOTA_EXHAUSTED)
+    match.coins[participant] -= price
+    match.purchased[participant][weapon] += 1
+    match.inventories[participant][weapon] += 1
+    return PurchaseResult(true, weapon, nothing)
 end
 
 """Expõe o estado observável de uma casa sem tipos de Gtk4."""
@@ -106,6 +140,12 @@ function combat_state(match::CombatMatch)
         combat_cells(match, COMPUTER),
         match.turn,
         match.winner,
+        match.coins[PLAYER],
+        match.coins[COMPUTER],
+        copy(match.inventories[PLAYER]),
+        copy(match.inventories[COMPUTER]),
+        match.turn == PLAYER && match.shop_available[PLAYER] && isnothing(match.winner),
+        shop_items(match, PLAYER),
     )
 end
 

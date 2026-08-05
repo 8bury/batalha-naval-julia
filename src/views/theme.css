@@ -269,3 +269,7 @@ button.combat-sunk { background: #542c35; border: 2px solid #e27c88; color: #ffd
 .combat-status { min-height: 24px; color: #c7d9df; font-weight: 600; }
 .combat-status.combat-victory { color: #8bd5b4; }
 .combat-status.combat-defeat { color: #f0a4a7; }
+
+.battle-indicator, .battle-balance { color: #d7e4e8; font-weight: 700; }
+.battle-balance { color: #8bd5b4; }
+.shop-panel { padding: 12px; background: #0a2735; border: 1px solid #2d5868; border-radius: 6px; }

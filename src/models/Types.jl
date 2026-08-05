@@ -25,6 +25,17 @@ end
     COMPUTER
 end
 
+@enum WeaponType begin
+    MISSILE
+    AIR_STRIKE
+end
+
+@enum PurchaseRejection begin
+    SHOP_CLOSED
+    INSUFFICIENT_FUNDS
+    QUOTA_EXHAUSTED
+end
+
 @enum AttackOutcome begin
     ATTACK_INVALID
     ATTACK_MISS
@@ -155,6 +166,23 @@ mutable struct CombatMatch
     turn::Participant
     winner::Union{Nothing, Participant}
     computer_strategy::ComputerStrategy
+    coins::Dict{Participant, Int}
+    inventories::Dict{Participant, Dict{WeaponType, Int}}
+    purchased::Dict{Participant, Dict{WeaponType, Int}}
+    shop_available::Dict{Participant, Bool}
+end
+
+struct ShopItemState
+    weapon::WeaponType
+    price::Int
+    remaining_quota::Int
+    inventory_count::Int
+end
+
+struct PurchaseResult
+    valid::Bool
+    weapon::WeaponType
+    rejection::Union{Nothing, PurchaseRejection}
 end
 
 struct CombatCellState
@@ -169,6 +197,12 @@ struct CombatState
     computer_cells::Matrix{CombatCellState}
     turn::Participant
     winner::Union{Nothing, Participant}
+    player_coins::Int
+    computer_coins::Int
+    player_inventory::Dict{WeaponType, Int}
+    computer_inventory::Dict{WeaponType, Int}
+    shop_available::Bool
+    shop_items::Vector{ShopItemState}
 end
 
 struct CombatUpdate

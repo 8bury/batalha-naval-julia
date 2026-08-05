@@ -8,6 +8,7 @@ import BatalhaNaval: FleetComposition,
                        auto_place_ships!,
                        available_ships,
                        battle_ready,
+                       buy_weapon!,
                        clear_board!,
                        combat_state,
                        computer_step!,
@@ -43,6 +44,7 @@ include("positioning_test.jl")
 include("automatic_positioning_test.jl")
 include("special_terrain_test.jl")
 include("combat_test.jl")
+include("economy_test.jl")
 include("computer_strategy_test.jl")
 include("controller_test.jl")
 include("computer_turn_step_test.jl")

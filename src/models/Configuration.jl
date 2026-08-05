@@ -43,6 +43,19 @@ const TERRAIN_TOOLTIPS = Dict(
     SHALLOW_WATER => "Águas Rasas — somente Patrulhas podem ocupar esta casa.",
 )
 
+const WEAPON_PRICES = Dict(MISSILE => 30, AIR_STRIKE => 50)
+const WEAPON_QUOTAS = Dict(
+    PUDDLE => Dict(MISSILE => 1, AIR_STRIKE => 1),
+    LAKE => Dict(MISSILE => 2, AIR_STRIKE => 1),
+    OCEAN => Dict(MISSILE => 3, AIR_STRIKE => 2),
+)
+const WEAPON_LABELS = Dict(MISSILE => "Míssil", AIR_STRIKE => "Ataque Aéreo")
+
+weapons() = (MISSILE, AIR_STRIKE)
+weapon_price(weapon::WeaponType) = WEAPON_PRICES[weapon]
+weapon_quota(map::MapKind, weapon::WeaponType) = WEAPON_QUOTAS[map][weapon]
+weapon_label(weapon::WeaponType) = WEAPON_LABELS[weapon]
+
 """Retorna os mapas disponíveis na ordem exibida pelo aplicativo."""
 map_options() = collect(MAP_OPTIONS)
 
