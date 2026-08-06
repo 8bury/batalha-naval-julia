@@ -96,7 +96,6 @@ function computer_attack!(match::CombatMatch, strategy::ComputerStrategy; rng=Ra
     return result
 end
 
-"""Aplica exatamente um ataque do computador e informa se o turno continua."""
 function available_air_strikes(knowledge::AbstractMatrix{PublicCellState})
     dimension = size(knowledge, 1)
     candidates = Tuple{AirStrikeAxis, Int}[]
@@ -156,6 +155,7 @@ function computer_special_attack!(match::CombatMatch; rng=Random.default_rng())
     return nothing
 end
 
+"""Aplica exatamente uma aÃ§Ã£o ofensiva do computador e informa se o turno continua."""
 function computer_step!(match::CombatMatch; rng=Random.default_rng())
     combat_directive(match) == CONTINUE_COMPUTER_TURN ||
         throw(ArgumentError("O combate não está aguardando um passo do computador."))
