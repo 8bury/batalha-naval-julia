@@ -30,6 +30,11 @@ end
     AIR_STRIKE
 end
 
+@enum AirStrikeAxis begin
+    STRIKE_ROW
+    STRIKE_COLUMN
+end
+
 @enum PurchaseRejection begin
     SHOP_CLOSED
     INSUFFICIENT_FUNDS
@@ -230,6 +235,22 @@ end
 
 struct MissileUpdate
     result::MissileResult
+    state::CombatState
+    directive::CombatDirective
+end
+
+struct AirStrikeResult
+    valid::Bool
+    axis::AirStrikeAxis
+    index::Int
+    cells::Vector{Tuple{Int, Int}}
+    hits::Int
+    sunk::Int
+    rejection::Union{Nothing, AttackRejection}
+end
+
+struct AirStrikeUpdate
+    result::AirStrikeResult
     state::CombatState
     directive::CombatDirective
 end

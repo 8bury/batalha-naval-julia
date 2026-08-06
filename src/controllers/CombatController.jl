@@ -8,7 +8,10 @@ export CombatController,
        missile_preview,
        player_missile!,
        CombatUpdate,
-       MissileUpdate
+       MissileUpdate,
+       air_strike_preview,
+       player_air_strike!,
+       AirStrikeUpdate
 
 struct CombatController{R<:AbstractRNG}
     match::CombatMatch
@@ -30,3 +33,5 @@ computer_step!(controller::CombatController) = computer_step!(controller.match; 
 buy_weapon!(controller::CombatController, weapon::WeaponType) = buy_weapon!(controller.match, PLAYER, weapon)
 player_missile!(controller::CombatController, row::Int, column::Int) =
     player_missile!(controller.match, row, column)
+player_air_strike!(controller::CombatController, axis::AirStrikeAxis, index::Int) =
+    player_air_strike!(controller.match, axis, index)

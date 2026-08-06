@@ -16,7 +16,7 @@ function attack_rejection_message(rejection::AttackRejection)
     rejection == OUT_OF_BOUNDS && return "A coordenada está fora do tabuleiro."
     rejection == REEF_TARGET && return "Recifes não podem ser atacados."
     rejection == ALREADY_ATTACKED && return "Esta coordenada já foi atacada."
-    rejection == WEAPON_UNAVAILABLE && return "Não há Mísseis disponíveis no inventário."
+    rejection == WEAPON_UNAVAILABLE && return "A arma selecionada não está disponível no inventário."
     rejection == NO_ATTACKABLE_CELLS && return "A área não contém casas inéditas e atacáveis."
     throw(ArgumentError("Rejeição de ataque sem mensagem: $rejection"))
 end
@@ -40,10 +40,16 @@ function battle_page(window, controller::CombatController)
     balance_indicator = styled!(GtkLabel(""; xalign=1), "battle-balance")
     shop_button = styled!(GtkButton("Abrir loja"), "secondary-action")
     missile_button = styled!(GtkButton("Usar Míssil 2×2"), "secondary-action")
+    air_strike_button = styled!(GtkButton("Usar Ataque Aéreo"), "secondary-action")
+    strike_row_button = styled!(GtkButton("Linha"), "secondary-action")
+    strike_column_button = styled!(GtkButton("Coluna"), "secondary-action")
     push!(battle_bar, turn_indicator)
     push!(battle_bar, balance_indicator)
     push!(battle_bar, shop_button)
     push!(battle_bar, missile_button)
+    push!(battle_bar, air_strike_button)
+    push!(battle_bar, strike_row_button)
+    push!(battle_bar, strike_column_button)
     push!(page, battle_bar)
     status = styled!(GtkLabel("Seu turno — escolha uma coordenada no tabuleiro inimigo."; wrap=true, xalign=0), "combat-status")
     push!(page, status)
@@ -75,7 +81,9 @@ function battle_page(window, controller::CombatController)
     boards.homogeneous = true
     push!(page, boards)
     buttons = Dict{Participant, Matrix{Any}}()
+    board_grids = Dict{Participant, BoardGrid}()
     missile_selected = Ref(false)
+    air_strike_axis = Ref{Union{Nothing, AirStrikeAxis}}(nothing)
 
     for (owner, heading) in ((PLAYER, "Sua frota"), (COMPUTER, "Frota inimiga"))
         box = GtkBox(:v)
@@ -83,6 +91,7 @@ function battle_page(window, controller::CombatController)
         box.hexpand = true
         push!(box, field_label(heading))
         board_grid = create_board_grid(initial_state.dimension)
+        board_grids[owner] = board_grid
         push!(box, board_grid.widget)
         push!(boards, box)
         owner_buttons = board_grid.buttons
@@ -95,6 +104,15 @@ function battle_page(window, controller::CombatController)
         shop_button.sensitive = state.shop_available
         missile_button.sensitive = state.turn == PLAYER && isnothing(state.winner) && state.player_inventory[MISSILE] > 0
         missile_button.sensitive || (missile_selected[] = false)
+        air_strike_button.sensitive = state.turn == PLAYER && isnothing(state.winner) && state.player_inventory[AIR_STRIKE] > 0
+        air_strike_button.sensitive || (air_strike_axis[] = nothing)
+        choosing_air_strike = air_strike_button.sensitive && !isnothing(air_strike_axis[])
+        strike_row_button.visible = choosing_air_strike
+        strike_column_button.visible = choosing_air_strike
+        for index in 1:state.dimension
+            board_grids[COMPUTER].row_headers[index].sensitive = choosing_air_strike && air_strike_axis[] == STRIKE_ROW
+            board_grids[COMPUTER].column_headers[index].sensitive = choosing_air_strike && air_strike_axis[] == STRIKE_COLUMN
+        end
         if !state.shop_available
             shop_panel.visible = false
         end
@@ -114,7 +132,25 @@ function battle_page(window, controller::CombatController)
                 button.tooltip_text = "$(Char(Int('A') + column - 1))$row — $tooltip"
                 add_css_class(button, css_class)
                 button.sensitive = owner == COMPUTER && isnothing(state.winner) && state.turn == PLAYER &&
-                    (missile_selected[] || (cell.public_state == UNKNOWN && cell.terrain != REEF))
+                    isnothing(air_strike_axis[]) && (missile_selected[] || (cell.public_state == UNKNOWN && cell.terrain != REEF))
+            end
+        end
+    end
+
+    function clear_air_strike_preview!()
+        for button in buttons[COMPUTER]
+            remove_css_class(button, "missile-preview")
+        end
+    end
+
+    function show_air_strike_preview!(axis, index)
+        clear_air_strike_preview!()
+        air_strike_axis[] == axis || return
+        state = combat_state(controller)
+        for (row, column) in air_strike_preview(initial_state.dimension, axis, index)
+            cell = state.computer_cells[row, column]
+            if cell.public_state == UNKNOWN && cell.terrain != REEF
+                add_css_class(buttons[COMPUTER][row, column], "missile-preview")
             end
         end
     end
@@ -147,11 +183,60 @@ function battle_page(window, controller::CombatController)
 
     signal_connect(missile_button, "clicked") do _
         missile_selected[] = !missile_selected[]
+        air_strike_axis[] = nothing
         clear_missile_preview!()
         status.label = missile_selected[] ?
             "Míssil selecionado — escolha o canto superior esquerdo da área 2×2." :
             "Míssil cancelado — escolha uma coordenada para o ataque básico."
         render_combat!()
+    end
+
+
+    signal_connect(air_strike_button, "clicked") do _
+        missile_selected[] = false
+        air_strike_axis[] = isnothing(air_strike_axis[]) ? STRIKE_ROW : nothing
+        clear_missile_preview!()
+        status.label = isnothing(air_strike_axis[]) ?
+            "Ataque Aéreo cancelado — escolha uma coordenada para o ataque básico." :
+            "Ataque Aéreo selecionado — escolha Linha ou Coluna e confirme pelo cabeçalho inimigo."
+        render_combat!()
+    end
+
+    signal_connect(strike_row_button, "clicked") do _
+        air_strike_axis[] = STRIKE_ROW
+        status.label = "Ataque Aéreo em linha — passe pelo número e clique para confirmar."
+        render_combat!()
+    end
+
+    signal_connect(strike_column_button, "clicked") do _
+        air_strike_axis[] = STRIKE_COLUMN
+        status.label = "Ataque Aéreo em coluna — passe pela letra e clique para confirmar."
+        render_combat!()
+    end
+
+    function finish_special_attack!(clear_selection!, update, weapon_name)
+        if !update.result.valid
+            status.label = attack_rejection_message(update.result.rejection)
+        elseif update.state.winner == PLAYER
+            status.label = "Vitória! A frota inimiga foi destruída."
+        elseif update.result.hits > 0
+            status.label = "$weapon_name: $(update.result.hits) acerto(s), $(update.result.sunk) afundamento(s). Você continua."
+        else
+            status.label = "$weapon_name sem acertos. O computador está escolhendo um alvo…"
+        end
+        update.result.valid && clear_selection!()
+        render_combat!(update.state)
+        if update.result.valid && update.directive == CONTINUE_COMPUTER_TURN
+            schedule_computer_step!()
+        end
+    end
+
+    function fire_air_strike!(axis, index)
+        update = player_air_strike!(controller, axis, index)
+        finish_special_attack!(update, "Ataque Aéreo") do
+            air_strike_axis[] = nothing
+            clear_air_strike_preview!()
+        end
     end
 
     function report_player!(update::CombatUpdate)
@@ -206,23 +291,36 @@ function battle_page(window, controller::CombatController)
             signal_connect(buttons[COMPUTER][row, column], "clicked") do _
                 update = missile_selected[] ? player_missile!(controller, row, column) : player_attack!(controller, row, column)
                 if update isa MissileUpdate
-                    if !update.result.valid
-                        status.label = attack_rejection_message(update.result.rejection)
-                    elseif update.state.winner == PLAYER
-                        status.label = "Vitória! A frota inimiga foi destruída."
-                    elseif update.result.hits > 0
-                        status.label = "Míssil: $(update.result.hits) acerto(s), $(update.result.sunk) afundamento(s). Você continua."
-                    else
-                        status.label = "Míssil sem acertos. O computador está escolhendo um alvo…"
+                    finish_special_attack!(update, "Míssil") do
+                        missile_selected[] = false
+                        clear_missile_preview!()
                     end
-                    missile_selected[] = false
-                    clear_missile_preview!()
                 else
                     report_player!(update)
+                    render_combat!(update.state)
+                    if update.result.valid && update.directive == CONTINUE_COMPUTER_TURN
+                        schedule_computer_step!()
+                    end
                 end
-                render_combat!(update.state)
-                if update.result.valid && update.directive == CONTINUE_COMPUTER_TURN
-                    schedule_computer_step!()
+            end
+        end
+    end
+    for index in 1:initial_state.dimension
+        let index = index
+            for (axis, header) in (
+                (STRIKE_ROW, board_grids[COMPUTER].row_headers[index]),
+                (STRIKE_COLUMN, board_grids[COMPUTER].column_headers[index]),
+            )
+                motion = GtkEventControllerMotion()
+                signal_connect(motion, "enter") do _, _, _
+                    show_air_strike_preview!(axis, index)
+                end
+                signal_connect(motion, "leave") do _
+                    clear_air_strike_preview!()
+                end
+                push!(header, motion)
+                signal_connect(header, "clicked") do _
+                    fire_air_strike!(axis, index)
                 end
             end
         end
