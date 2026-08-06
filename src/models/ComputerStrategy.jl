@@ -97,9 +97,72 @@ function computer_attack!(match::CombatMatch, strategy::ComputerStrategy; rng=Ra
 end
 
 """Aplica exatamente um ataque do computador e informa se o turno continua."""
+function available_air_strikes(knowledge::AbstractMatrix{PublicCellState})
+    dimension = size(knowledge, 1)
+    candidates = Tuple{AirStrikeAxis, Int}[]
+    for axis in (STRIKE_ROW, STRIKE_COLUMN), index in 1:dimension
+        any(cell -> knowledge[cell...] == UNKNOWN, air_strike_preview(dimension, axis, index)) &&
+            push!(candidates, (axis, index))
+    end
+    return candidates
+end
+
+function available_missiles(knowledge::AbstractMatrix{PublicCellState})
+    dimension = size(knowledge, 1)
+    candidates = Tuple{Int, Int}[]
+    for row in 1:(dimension - 1), column in 1:(dimension - 1)
+        any(cell -> knowledge[cell...] == UNKNOWN, missile_preview(dimension, row, column).cells) &&
+            push!(candidates, (row, column))
+    end
+    return candidates
+end
+
+function computer_can_buy(match::CombatMatch, weapon::WeaponType)
+    map = target_board(match, COMPUTER).map
+    return match.coins[COMPUTER] >= weapon_price(weapon) &&
+           match.purchased[COMPUTER][weapon] < weapon_quota(map, weapon)
+end
+
+function remember_public_damage!(strategy::ComputerStrategy, knowledge)
+    empty!(strategy.pending_hits)
+    for cell in CartesianIndices(knowledge)
+        knowledge[cell] == DAMAGED && push!(strategy.pending_hits, Tuple(cell))
+    end
+    return strategy
+end
+
+function computer_special_attack!(match::CombatMatch; rng=Random.default_rng())
+    knowledge = computer_knowledge(match)
+    if computer_can_buy(match, AIR_STRIKE)
+        candidates = available_air_strikes(knowledge)
+        if !isempty(candidates)
+            buy_weapon!(match, COMPUTER, AIR_STRIKE).valid || return nothing
+            axis, index = rand(rng, candidates)
+            result = resolve_air_strike!(match, COMPUTER, axis, index)
+            remember_public_damage!(match.computer_strategy, computer_knowledge(match))
+            return AirStrikeUpdate(result, combat_state(match), combat_directive(match))
+        end
+    end
+    if computer_can_buy(match, MISSILE)
+        candidates = available_missiles(knowledge)
+        if !isempty(candidates)
+            buy_weapon!(match, COMPUTER, MISSILE).valid || return nothing
+            row, column = rand(rng, candidates)
+            result = resolve_missile!(match, COMPUTER, row, column)
+            remember_public_damage!(match.computer_strategy, computer_knowledge(match))
+            return MissileUpdate(result, combat_state(match), combat_directive(match))
+        end
+    end
+    return nothing
+end
+
 function computer_step!(match::CombatMatch; rng=Random.default_rng())
     combat_directive(match) == CONTINUE_COMPUTER_TURN ||
         throw(ArgumentError("O combate não está aguardando um passo do computador."))
+    if match.shop_available[COMPUTER]
+        special_update = computer_special_attack!(match; rng)
+        !isnothing(special_update) && return special_update
+    end
     result = computer_attack!(match, match.computer_strategy; rng)
     return combat_update(match, result)
 end
