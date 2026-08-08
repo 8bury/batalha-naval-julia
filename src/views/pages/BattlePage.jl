@@ -67,6 +67,7 @@ function show_combat_history(window, events)
 end
 
 function match_summary_page(window, controller::CombatController)
+    set_match_in_progress!(window, false)
     summary = match_summary(controller)
     score = summary.score
     page = configure_container!(GtkBox(:v); spacing=14)
@@ -106,10 +107,12 @@ function match_summary_page(window, controller::CombatController)
 end
 
 function battle_page(window, controller::CombatController)
+    set_match_in_progress!(window, true)
     initial_state = combat_state(controller)
     page = configure_container!(GtkBox(:v); spacing=14)
     page.width_request = 1180
     page.height_request = 700
+    root = scrollable_page(page)
     push!(page, title_label("Batalha naval"))
     battle_bar = GtkBox(:h)
     battle_bar.spacing = 18
@@ -120,6 +123,7 @@ function battle_page(window, controller::CombatController)
     missile_button = styled!(GtkButton("Usar Míssil 2×2"), "secondary-action")
     air_strike_button = styled!(GtkButton("Usar Ataque Aéreo"), "secondary-action")
     sound_button = styled!(GtkButton("🔊 Sons: ligados"), "secondary-action")
+    instructions_button = styled!(GtkButton("Instruções"), "secondary-action")
     sound_button.tooltip_text = "Silenciar todos os sons da partida"
     strike_row_button = styled!(GtkButton("Linha"), "secondary-action")
     strike_column_button = styled!(GtkButton("Coluna"), "secondary-action")
@@ -130,9 +134,13 @@ function battle_page(window, controller::CombatController)
     push!(battle_bar, missile_button)
     push!(battle_bar, air_strike_button)
     push!(battle_bar, sound_button)
+    push!(battle_bar, instructions_button)
     push!(battle_bar, strike_row_button)
     push!(battle_bar, strike_column_button)
     push!(page, battle_bar)
+    signal_connect(instructions_button, "clicked") do _
+        show_battle_instructions(window)
+    end
     status = styled!(GtkLabel("Seu turno — escolha uma coordenada no tabuleiro inimigo."; wrap=true, xalign=0), "combat-status")
     push!(page, status)
     shop_panel = styled!(GtkBox(:v), "shop-panel")
@@ -161,13 +169,19 @@ function battle_page(window, controller::CombatController)
     boards.spacing = 28
     boards.hexpand = true
     boards.homogeneous = true
-    push!(page, boards)
+    boards_scroll = GtkScrolledWindow()
+    boards_scroll[] = boards
+    boards_scroll.hexpand = true
+    boards_scroll.vexpand = true
+    boards_scroll.min_content_height = 460
+    push!(page, boards_scroll)
     buttons = Dict{Participant, Matrix{Any}}()
     board_grids = Dict{Participant, BoardGrid}()
     missile_selected = Ref(false)
     air_strike_axis = Ref{Union{Nothing, AirStrikeAxis}}(nothing)
     fleet_labels = Dict{Participant, Any}()
     summary_shown = Ref(false)
+    abandoned = Ref(false)
     audio = CombatAudio()
     delivered_events = Ref(length(initial_state.history))
     shake_generation = Ref(0)
@@ -201,6 +215,7 @@ function battle_page(window, controller::CombatController)
     end
 
     function finish_if_needed!(state)
+        abandoned[] && return true
         if !isnothing(state.winner) && !summary_shown[]
             summary_shown[] = true
             final_event = state.history[end]
@@ -215,7 +230,7 @@ function battle_page(window, controller::CombatController)
             else
                 Gtk4.GLib.g_timeout_add(delay_ms) do
                     # A navegação pode abandonar a batalha antes do callback.
-                    if window[] === page
+                    if window[] === root
                         stop_audio!(audio)
                         window[] = match_summary_page(window, controller)
                     end
@@ -304,7 +319,7 @@ function battle_page(window, controller::CombatController)
     end
 
     Gtk4.GLib.g_timeout_add(250) do
-        summary_shown[] && return false
+        (summary_shown[] || abandoned[]) && return false
         timer_indicator.label = "Tempo: $(format_duration(elapsed_seconds(controller)))"
         return true
     end
@@ -438,6 +453,7 @@ function battle_page(window, controller::CombatController)
 
     function schedule_computer_step!()
         Gtk4.GLib.g_timeout_add(600) do
+            abandoned[] && return false
             update = computer_step!(controller)
             outcome = update.state.history[end].outcome
             if update.state.winner == COMPUTER
@@ -509,7 +525,18 @@ function battle_page(window, controller::CombatController)
         end
     end
     push!(page, styled!(GtkLabel("○ = água   × = dano   ■ = afundado"; xalign=0), "board-legend"))
-    push!(page, navigation_button(window, "Menu Principal", () -> main_menu(window); style="quiet-action", expand=false))
+    abandon_button = styled!(GtkButton("Abandonar partida"), "danger-action")
+    abandon_button.halign = Gtk4.Align_START
+    signal_connect(abandon_button, "clicked") do _
+        confirm_exit(window; match_in_progress=true) do
+            abandoned[] = true
+            shake_generation[] += 1
+            stop_audio!(audio)
+            set_match_in_progress!(window, false)
+            window[] = main_menu(window)
+        end
+    end
+    push!(page, abandon_button)
     render_combat!()
-    return page
+    return root
 end

@@ -23,7 +23,11 @@ function positioning_page(window, controller::PositioningController)
     board_column.spacing = 10
     board_column.hexpand = true
     board_column.vexpand = true
-    push!(content, board_column)
+    board_scroll = GtkScrolledWindow()
+    board_scroll[] = board_column
+    board_scroll.hexpand = true
+    board_scroll.vexpand = true
+    push!(content, board_scroll)
 
     board_grid = create_board_grid(initial_state.dimension)
     push!(board_column, board_grid.widget)
@@ -207,5 +211,5 @@ function positioning_page(window, controller::PositioningController)
     render_board!(initial_state)
     refresh_controls!(initial_state)
     push!(page, navigation_button(window, "Voltar à Configuração", () -> configuration_page(window, initial_state.player_name)))
-    return page
+    return scrollable_page(page)
 end

@@ -1,3 +1,12 @@
+const ACTIVE_MATCH_WINDOWS = WeakKeyDict{Any, Bool}()
+
+function set_match_in_progress!(window, active::Bool)
+    ACTIVE_MATCH_WINDOWS[window] = active
+    return active
+end
+
+match_in_progress(window) = get(ACTIVE_MATCH_WINDOWS, window, false)
+
 function create_window(on_closed::Function=() -> nothing)
     window = GtkWindow("Batalha Naval", 1280, 800)
     window.resizable = true
@@ -13,7 +22,7 @@ function create_window(on_closed::Function=() -> nothing)
             return false
         end
 
-        confirm_exit(window) do
+        confirm_exit(window; match_in_progress=match_in_progress(window)) do
             close_confirmed[] = true
             close(window)
         end
@@ -39,4 +48,3 @@ function run_application()
     end
     return window
 end
-

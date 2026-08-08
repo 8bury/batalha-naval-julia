@@ -4,7 +4,7 @@ function close_dialog(dialog)
     return nothing
 end
 
-function confirm_exit(on_confirm::Function, window)
+function confirm_exit(on_confirm::Function, window; match_in_progress=false)
     dialog = GtkWindow(; modal=true, title="Confirmar saída")
     Gtk4.transient_for(dialog, window)
 
@@ -15,7 +15,10 @@ function confirm_exit(on_confirm::Function, window)
     content.margin_bottom = 24
     content.margin_start = 24
     content.margin_end = 24
-    push!(content, subtitle_label("Deseja realmente sair do Batalha Naval?"))
+    message = match_in_progress ?
+        "Há uma partida em andamento. Deseja abandonar e sair? O resultado não será classificado." :
+        "Deseja realmente sair do Batalha Naval?"
+    push!(content, subtitle_label(message))
     actions = GtkBox(:h)
     actions.spacing = 12
     push!(content, actions)
@@ -57,11 +60,7 @@ function main_menu(window)
 
     instructions_button = menu_button("Instruções")
     signal_connect(instructions_button, "clicked") do _
-        window[] = information_page(
-            window,
-            "Instruções",
-            "Configure seu nome, escolha um mapa e decida se a partida terá terrenos especiais.",
-        )
+        window[] = information_page(window)
     end
     push!(page, instructions_button)
 

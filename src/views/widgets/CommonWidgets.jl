@@ -25,6 +25,14 @@ function configure_container!(widget; spacing=16)
     return styled!(widget, "surface")
 end
 
+function scrollable_page(content)
+    scroll = GtkScrolledWindow()
+    scroll[] = content
+    scroll.vexpand = true
+    scroll.hexpand = true
+    return scroll
+end
+
 function title_label(text)
     return styled!(GtkLabel(text; xalign=0), "screen-title")
 end
