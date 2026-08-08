@@ -60,3 +60,32 @@ end
     @test computer.actor == COMPUTER
     @test startswith(computer.message, "Computador — ")
 end
+
+@testset "projeção aliada distingue dano e afundamento" begin
+    player = combat_board(ships=[
+        ShipPlacement(1, PATROL, 1, 1, HORIZONTAL),
+        ShipPlacement(2, SUBMARINE, 2, 1, HORIZONTAL),
+        ShipPlacement(3, CRUISER, 3, 1, HORIZONTAL),
+    ])
+    enemy = combat_board(ships=[
+        ShipPlacement(1, PATROL, 5, 5, HORIZONTAL),
+        ShipPlacement(2, SUBMARINE, 4, 1, HORIZONTAL),
+        ShipPlacement(3, CRUISER, 3, 1, HORIZONTAL),
+    ])
+    match = create_combat_match(player, enemy)
+    @test player_attack!(match, 5, 4).result.outcome == ATTACK_MISS
+
+    partial = BatalhaNaval.resolve_attack!(match, COMPUTER, 2, 1)
+    @test partial.outcome == ATTACK_HIT
+    damaged = combat_state(match).player_fleet[2]
+    @test damaged.ship_type == SUBMARINE
+    @test damaged.state == FLEET_DAMAGED
+    @test damaged.cells == [(2, 1), (2, 2)]
+
+    final = BatalhaNaval.resolve_attack!(match, COMPUTER, 2, 2)
+    @test final.outcome == ATTACK_SUNK
+    sunk = combat_state(match).player_fleet[2]
+    @test sunk.ship_type == SUBMARINE
+    @test sunk.state == FLEET_SUNK
+    @test sunk.cells == [(2, 1), (2, 2)]
+end
