@@ -22,6 +22,7 @@ import BatalhaNaval: MatchConfiguration, auto_place_ships!, battle_ready,
     clock() = times[1]
     controller = CombatController(player, computer; configuration, rng=MersenneTwister(43), clock)
 
+    @test combat_in_progress(controller)
     @test elapsed_seconds(controller) == 0
     invalid = player_attack!(controller, 0, 0)
     @test !invalid.result.valid
@@ -38,6 +39,7 @@ import BatalhaNaval: MatchConfiguration, auto_place_ships!, battle_ready,
     union!(controller.match.player_attacks,
         Iterators.flatten(placement_cells.(computer.placements)))
     controller.match.winner = PLAYER
+    @test !combat_in_progress(controller)
     summary = match_summary(controller)
     @test summary.duration_seconds == 125
     @test summary.hits == 6

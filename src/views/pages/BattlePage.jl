@@ -218,6 +218,8 @@ function battle_page(window, controller::CombatController)
         abandoned[] && return true
         if !isnothing(state.winner) && !summary_shown[]
             summary_shown[] = true
+            set_match_in_progress!(window, false)
+            abandon_button.sensitive = false
             final_event = state.history[end]
             delay_ms = combat_completion_delay_ms(final_event)
             if delay_ms == 0
@@ -528,7 +530,8 @@ function battle_page(window, controller::CombatController)
     abandon_button = styled!(GtkButton("Abandonar partida"), "danger-action")
     abandon_button.halign = Gtk4.Align_START
     signal_connect(abandon_button, "clicked") do _
-        confirm_exit(window; match_in_progress=true) do
+        combat_in_progress(controller) || return nothing
+        confirm_exit(window; match_in_progress=true, intent=:abandon) do
             abandoned[] = true
             shake_generation[] += 1
             stop_audio!(audio)

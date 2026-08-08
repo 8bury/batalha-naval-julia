@@ -4,8 +4,9 @@ function close_dialog(dialog)
     return nothing
 end
 
-function confirm_exit(on_confirm::Function, window; match_in_progress=false)
-    dialog = GtkWindow(; modal=true, title="Confirmar saída")
+function confirm_exit(on_confirm::Function, window; match_in_progress=false, intent=:exit)
+    abandoning = intent == :abandon
+    dialog = GtkWindow(; modal=true, title=abandoning ? "Confirmar abandono" : "Confirmar saída")
     Gtk4.transient_for(dialog, window)
 
     content = GtkBox(:v)
@@ -15,8 +16,9 @@ function confirm_exit(on_confirm::Function, window; match_in_progress=false)
     content.margin_bottom = 24
     content.margin_start = 24
     content.margin_end = 24
-    message = match_in_progress ?
-        "Há uma partida em andamento. Deseja abandonar e sair? O resultado não será classificado." :
+    message = abandoning ?
+        "Deseja abandonar a partida e voltar ao menu? O resultado não será classificado." : match_in_progress ?
+        "Há uma partida em andamento. Deseja abandonar a partida e sair do aplicativo? O resultado não será classificado." :
         "Deseja realmente sair do Batalha Naval?"
     push!(content, subtitle_label(message))
     actions = GtkBox(:h)
@@ -29,7 +31,8 @@ function confirm_exit(on_confirm::Function, window; match_in_progress=false)
     end
     push!(actions, cancel_button)
 
-    exit_button = styled!(GtkButton("Sair"; hexpand=true), "danger-action")
+    confirm_label = abandoning ? "Abandonar" : "Sair"
+    exit_button = styled!(GtkButton(confirm_label; hexpand=true), "danger-action")
     signal_connect(exit_button, "clicked") do _
         close_dialog(dialog)
         on_confirm()

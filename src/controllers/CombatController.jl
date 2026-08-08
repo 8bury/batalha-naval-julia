@@ -2,6 +2,7 @@ export CombatController,
        CombatCellState,
        CombatState,
        combat_state,
+       combat_in_progress,
        computer_step!,
        player_attack!,
        buy_weapon!,
@@ -40,6 +41,7 @@ function CombatController(player::PositioningBoard, computer::PositioningBoard;
 end
 
 combat_state(controller::CombatController) = combat_state(controller.match)
+combat_in_progress(controller::CombatController) = isnothing(combat_state(controller).winner)
 
 function record_timing!(controller::CombatController, valid::Bool)
     valid || return controller

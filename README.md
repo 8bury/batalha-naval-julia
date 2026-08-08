@@ -70,8 +70,9 @@ esse arquivo apaga somente o ranking local; não há sincronização em nuvem.
 
 O launcher POSIX e o ambiente Julia são fornecidos e a suíte de domínio é
 portável. No Windows, a suíte e o smoke de abertura foram automatizados; o fluxo
-interativo completo permanece no roteiro manual abaixo. No Arch, a aparência,
-integração com o gerenciador de janelas, áudio e disponibilidade de uma sessão
+interativo completo permanece no relatório manual abaixo. No Arch, o áudio está
+indisponível nesta versão porque a reprodução usa a API nativa do Windows. A
+aparência, integração com o gerenciador de janelas e disponibilidade de uma sessão
 gráfica/GPU dependem da instalação local e precisam de conferência manual. Em
 sessões mínimas, instale os drivers gráficos e bibliotecas de áudio usuais do
 sistema antes do teste.
