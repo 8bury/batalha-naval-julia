@@ -17,10 +17,12 @@ import ..BatalhaNaval: CombatMatch,
                         create_combat_match,
                         create_match_boards,
                         place_ship!,
+                        placement_cells,
                         player_attack!,
                         preview_placement,
                         remove_ship_at!,
                         ship_at,
+                        ship_sunk,
                         terrain_at
 
 include("PositioningController.jl")

@@ -66,6 +66,46 @@ function show_combat_history(window, events)
     return dialog
 end
 
+function match_summary_page(window, controller::CombatController)
+    summary = match_summary(controller)
+    score = summary.score
+    page = configure_container!(GtkBox(:v); spacing=14)
+    push!(page, title_label(summary.won ? "Vitória!" : "Derrota"))
+    push!(page, subtitle_label(summary.won ?
+        "A frota inimiga foi destruída." : "Sua frota foi destruída."))
+    details = [
+        "Duração: $(format_duration(summary.duration_seconds))",
+        "Acertos em casas inimigas: $(summary.hits)",
+        "Navios aliados sobreviventes: $(summary.surviving_ships)",
+        "Integridade aliada: $(summary.intact_cells) casa(s) intacta(s)",
+        "Moedas restantes: $(summary.remaining_coins) (não alteram a pontuação)",
+        "Acertos: 100 × $(summary.hits) = $(score.hit_points)",
+        "Sobreviventes: 300 × $(summary.surviving_ships) = $(score.survivor_points)",
+        "Integridade: 50 × $(summary.intact_cells) = $(score.integrity_points)",
+        "Tempo: max(0, 1000 - $(summary.duration_seconds)) = $(score.time_points)",
+        "Bônus de vitória: $(score.victory_points)",
+        "Pontuação final: $(score.total)",
+    ]
+    card = styled!(GtkBox(:v), "info-card")
+    card.spacing = 7
+    foreach(text -> push!(card, GtkLabel(text; xalign=0)), details)
+    push!(page, card)
+
+    again = menu_button("Jogar Novamente"; style="primary-action")
+    signal_connect(again, "clicked") do _
+        window[] = battle_page(window, play_again(controller))
+    end
+    push!(page, again)
+    ranking = menu_button("Ver Ranking"; style="secondary-action")
+    signal_connect(ranking, "clicked") do _
+        window[] = information_page(window, "Ranking",
+            "O ranking será disponibilizado na próxima etapa.")
+    end
+    push!(page, ranking)
+    push!(page, navigation_button(window, "Menu Principal", () -> main_menu(window)))
+    return page
+end
+
 function battle_page(window, controller::CombatController)
     initial_state = combat_state(controller)
     page = configure_container!(GtkBox(:v); spacing=14)
@@ -75,6 +115,7 @@ function battle_page(window, controller::CombatController)
     battle_bar = GtkBox(:h)
     battle_bar.spacing = 18
     turn_indicator = styled!(GtkLabel(""; xalign=0, hexpand=true), "battle-indicator")
+    timer_indicator = styled!(GtkLabel("Tempo: 00:00"; xalign=0), "battle-indicator")
     balance_indicator = styled!(GtkLabel(""; xalign=1), "battle-balance")
     shop_button = styled!(GtkButton("Abrir loja"), "secondary-action")
     missile_button = styled!(GtkButton("Usar Míssil 2×2"), "secondary-action")
@@ -82,6 +123,7 @@ function battle_page(window, controller::CombatController)
     strike_row_button = styled!(GtkButton("Linha"), "secondary-action")
     strike_column_button = styled!(GtkButton("Coluna"), "secondary-action")
     push!(battle_bar, turn_indicator)
+    push!(battle_bar, timer_indicator)
     push!(battle_bar, balance_indicator)
     push!(battle_bar, shop_button)
     push!(battle_bar, missile_button)
@@ -123,6 +165,16 @@ function battle_page(window, controller::CombatController)
     missile_selected = Ref(false)
     air_strike_axis = Ref{Union{Nothing, AirStrikeAxis}}(nothing)
     fleet_labels = Dict{Participant, Any}()
+    summary_shown = Ref(false)
+
+    function finish_if_needed!(state)
+        if !isnothing(state.winner) && !summary_shown[]
+            summary_shown[] = true
+            window[] = match_summary_page(window, controller)
+            return true
+        end
+        return false
+    end
 
     for (owner, heading) in ((PLAYER, "Sua frota"), (COMPUTER, "Frota inimiga"))
         box = GtkBox(:v)
@@ -152,6 +204,7 @@ function battle_page(window, controller::CombatController)
     push!(boards, history_panel)
 
     function render_combat!(state=combat_state(controller))
+        timer_indicator.label = "Tempo: $(format_duration(elapsed_seconds(controller)))"
         turn_indicator.label = state.turn == PLAYER ? "Turno: jogador" : "Turno: computador"
         balance_indicator.label = "Saldo: $(state.player_coins) moedas"
         shop_button.sensitive = state.shop_available
@@ -196,6 +249,12 @@ function battle_page(window, controller::CombatController)
             label.label = label.visible ? state.recent_events[index].message : ""
         end
         history_button.sensitive = !isempty(state.history)
+    end
+
+    Gtk4.GLib.g_timeout_add(250) do
+        summary_shown[] && return false
+        timer_indicator.label = "Tempo: $(format_duration(elapsed_seconds(controller)))"
+        return true
     end
 
     function clear_air_strike_preview!()
@@ -287,6 +346,7 @@ function battle_page(window, controller::CombatController)
         end
         update.result.valid && clear_selection!()
         render_combat!(update.state)
+        finish_if_needed!(update.state) && return
         if update.result.valid && update.directive == CONTINUE_COMPUTER_TURN
             schedule_computer_step!()
         end
@@ -331,6 +391,7 @@ function battle_page(window, controller::CombatController)
                 status.label = "O computador acertou e continua atacando…"
             end
             render_combat!(update.state)
+            finish_if_needed!(update.state) && return false
             if update.directive == CONTINUE_COMPUTER_TURN
                 schedule_computer_step!()
             end
@@ -359,6 +420,7 @@ function battle_page(window, controller::CombatController)
                 else
                     report_player!(update)
                     render_combat!(update.state)
+                    finish_if_needed!(update.state) && return nothing
                     if update.result.valid && update.directive == CONTINUE_COMPUTER_TURN
                         schedule_computer_step!()
                     end

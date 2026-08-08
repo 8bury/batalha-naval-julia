@@ -95,6 +95,25 @@ struct CombatEvent
     message::String
 end
 
+struct ScoreBreakdown
+    hit_points::Int
+    survivor_points::Int
+    integrity_points::Int
+    time_points::Int
+    victory_points::Int
+    total::Int
+end
+
+struct MatchSummary
+    won::Bool
+    duration_seconds::Int
+    hits::Int
+    surviving_ships::Int
+    intact_cells::Int
+    remaining_coins::Int
+    score::ScoreBreakdown
+end
+
 struct FleetComposition
     patrols::Int
     submarines::Int

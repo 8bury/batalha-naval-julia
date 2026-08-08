@@ -47,6 +47,8 @@ export AttackRejection,
        OCEAN,
        PUDDLE,
        MatchConfiguration,
+       MatchSummary,
+       ScoreBreakdown,
        MapKind,
        MapOption,
        Orientation,
@@ -79,7 +81,9 @@ export AttackRejection,
        ship_symbol,
        terrain_symbol,
        terrain_tooltip,
-       validate_player_name
+       validate_player_name,
+       calculate_score,
+       format_duration
 
 # Implementações coesas do Model, carregadas na ordem de dependência.
 include("Types.jl")
@@ -89,3 +93,4 @@ include("Terrain.jl")
 include("Positioning.jl")
 include("Combat.jl")
 include("ComputerStrategy.jl")
+include("Scoring.jl")
