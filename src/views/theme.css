@@ -285,3 +285,5 @@ button.combat-sunk { background: #542c35; border: 2px solid #e27c88; color: #ffd
 .battle-indicator, .battle-balance { color: #d7e4e8; font-weight: 700; }
 .battle-balance { color: #8bd5b4; }
 .shop-panel { padding: 12px; background: #0a2735; border: 1px solid #2d5868; border-radius: 6px; }
+.history-panel { padding: 12px; background: #0a2735; border: 1px solid #2d5868; border-radius: 6px; }
+.fleet-status { color: #b9cbd2; font-size: 12px; }

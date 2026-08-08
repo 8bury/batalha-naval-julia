@@ -19,7 +19,21 @@ function create_combat_match(
         Dict(participant => Dict(weapon => 0 for weapon in weapons()) for participant in (PLAYER, COMPUTER)),
         Dict(participant => Dict(weapon => 0 for weapon in weapons()) for participant in (PLAYER, COMPUTER)),
         Dict(PLAYER => true, COMPUTER => false),
+        CombatEvent[],
     )
+end
+
+coordinate_label(row, column) = "$(Char(Int('A') + column - 1))$(row)"
+participant_label(participant) = participant == PLAYER ? "Jogador" : "Computador"
+
+function record_event!(match, actor, weapon, target, outcome, hits, sunk_ships)
+    result = outcome == ATTACK_MISS ? "água" :
+             outcome == ATTACK_SUNK ? "afundou $(join(ship_label.(sunk_ships), ", "))" : "acerto"
+    subject = isnothing(weapon) ? target : weapon_label(weapon)
+    push!(match.history, CombatEvent(
+        actor, weapon, target, outcome, hits, sunk_ships,
+        "$(participant_label(actor)) — $subject: $result.",
+    ))
 end
 
 attacks_by(match::CombatMatch, participant::Participant) =
@@ -66,7 +80,9 @@ function resolve_attack!(match::CombatMatch, participant::Participant, row::Int,
     if isnothing(placement)
         match.turn = opponent(participant)
         match.shop_available[match.turn] = true
-        return AttackResult(true, ATTACK_MISS, row, column, nothing)
+        result = AttackResult(true, ATTACK_MISS, row, column, nothing)
+        record_event!(match, participant, nothing, coordinate_label(row, column), result.outcome, 0, ShipType[])
+        return result
     end
 
     match.coins[participant] += 10
@@ -76,9 +92,13 @@ function resolve_attack!(match::CombatMatch, participant::Participant, row::Int,
         if fleet_destroyed(board, attacks)
             match.winner = participant
         end
-        return AttackResult(true, ATTACK_SUNK, row, column, nothing)
+        result = AttackResult(true, ATTACK_SUNK, row, column, nothing)
+        record_event!(match, participant, nothing, coordinate_label(row, column), result.outcome, 1, [placement.ship_type])
+        return result
     end
-    return AttackResult(true, ATTACK_HIT, row, column, nothing)
+    result = AttackResult(true, ATTACK_HIT, row, column, nothing)
+    record_event!(match, participant, nothing, coordinate_label(row, column), result.outcome, 1, ShipType[])
+    return result
 end
 
 function shop_items(match::CombatMatch, participant::Participant)
@@ -127,9 +147,22 @@ function combat_cells(match::CombatMatch, owner::Participant)
                 public_cell(match, owner, row, column),
                 terrain_at(board, row, column),
                 owner == PLAYER && !isnothing(placement) ? placement.ship_type : nothing,
+                !isnothing(placement) && ship_sunk(placement, owner == PLAYER ? match.computer_attacks : match.player_attacks) ? placement.ship_type : nothing,
             )
         end for row in 1:board.dimension, column in 1:board.dimension
     ]
+end
+
+function fleet_status(match::CombatMatch, owner::Participant)
+    board = owner == PLAYER ? match.player_board : match.computer_board
+    attacks = owner == PLAYER ? match.computer_attacks : match.player_attacks
+    return [begin
+        cells = placement_cells(placement)
+        hits = count(cell -> cell in attacks, cells)
+        sunk = hits == length(cells)
+        state = sunk ? FLEET_SUNK : owner == COMPUTER ? FLEET_HIDDEN : hits > 0 ? FLEET_DAMAGED : FLEET_INTACT
+        FleetShipStatus(placement.ship_type, state, sunk || owner == PLAYER ? cells : Tuple{Int, Int}[])
+    end for placement in board.placements]
 end
 
 """Retorna todo o estado observável do combate sem expor sua representação mutável."""
@@ -146,6 +179,10 @@ function combat_state(match::CombatMatch)
         copy(match.inventories[COMPUTER]),
         match.turn == PLAYER && match.shop_available[PLAYER] && isnothing(match.winner),
         shop_items(match, PLAYER),
+        fleet_status(match, PLAYER),
+        fleet_status(match, COMPUTER),
+        reverse(copy(match.history[max(1, end - 4):end])),
+        copy(match.history),
     )
 end
 
@@ -180,6 +217,8 @@ function apply_special_attack!(match, participant, weapon, board, attacks, candi
     union!(attacks, cells)
     hits = count(cell -> !isnothing(ship_at(board, cell...)), cells)
     sunk = count(placement -> ship_sunk(placement, attacks), board.placements) - sunk_before
+    sunk_ships = [placement.ship_type for placement in board.placements if
+        ship_sunk(placement, attacks) && any(cell -> cell in cells, placement_cells(placement))]
     match.coins[participant] += 10 * (hits + sunk)
     match.inventories[participant][weapon] -= 1
     match.shop_available[participant] = false
@@ -189,6 +228,8 @@ function apply_special_attack!(match, participant, weapon, board, attacks, candi
         match.turn = opponent(participant)
         match.shop_available[match.turn] = true
     end
+    outcome = !isempty(sunk_ships) ? ATTACK_SUNK : hits > 0 ? ATTACK_HIT : ATTACK_MISS
+    record_event!(match, participant, weapon, "", outcome, hits, sunk_ships)
     return (valid=true, cells=cells, hits=hits, sunk=sunk, rejection=nothing)
 end
 

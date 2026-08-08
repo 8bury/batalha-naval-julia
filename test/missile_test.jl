@@ -38,6 +38,11 @@
         @test update.state.player_inventory[MISSILE] == 0
         @test update.state.turn == PLAYER
         @test update.directive == AWAIT_PLAYER
+        event = update.state.history[end]
+        @test event.actor == PLAYER
+        @test event.weapon == MISSILE
+        @test occursin("Míssil", event.message)
+        @test occursin("Submarino", event.message)
     end
 
 

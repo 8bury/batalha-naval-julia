@@ -72,6 +72,29 @@ end
     PUBLIC_REEF
 end
 
+@enum FleetShipState begin
+    FLEET_HIDDEN
+    FLEET_INTACT
+    FLEET_DAMAGED
+    FLEET_SUNK
+end
+
+struct FleetShipStatus
+    ship_type::ShipType
+    state::FleetShipState
+    cells::Vector{Tuple{Int, Int}}
+end
+
+struct CombatEvent
+    actor::Participant
+    weapon::Union{Nothing, WeaponType}
+    target::String
+    outcome::AttackOutcome
+    hits::Int
+    sunk_ships::Vector{ShipType}
+    message::String
+end
+
 struct FleetComposition
     patrols::Int
     submarines::Int
@@ -177,6 +200,7 @@ mutable struct CombatMatch
     inventories::Dict{Participant, Dict{WeaponType, Int}}
     purchased::Dict{Participant, Dict{WeaponType, Int}}
     shop_available::Dict{Participant, Bool}
+    history::Vector{CombatEvent}
 end
 
 struct ShopItemState
@@ -196,6 +220,7 @@ struct CombatCellState
     public_state::PublicCellState
     terrain::Union{Nothing, TerrainKind}
     own_ship_type::Union{Nothing, ShipType}
+    revealed_ship_type::Union{Nothing, ShipType}
 end
 
 struct CombatState
@@ -210,6 +235,10 @@ struct CombatState
     computer_inventory::Dict{WeaponType, Int}
     shop_available::Bool
     shop_items::Vector{ShopItemState}
+    player_fleet::Vector{FleetShipStatus}
+    computer_fleet::Vector{FleetShipStatus}
+    recent_events::Vector{CombatEvent}
+    history::Vector{CombatEvent}
 end
 
 struct CombatUpdate

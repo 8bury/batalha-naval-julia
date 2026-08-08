@@ -1,7 +1,10 @@
 function combat_cell_appearance(cell::CombatCellState, owner::Participant)
     cell.public_state == WATER && return ("○", "Água", "combat-water")
     cell.public_state == DAMAGED && return ("×", "Embarcação atingida", "combat-damaged")
-    cell.public_state == SUNK && return ("■", "Embarcação afundada", "combat-sunk")
+    if cell.public_state == SUNK
+        revealed = isnothing(cell.revealed_ship_type) ? "Embarcação" : ship_label(cell.revealed_ship_type)
+        return ("■", "$revealed afundado", "combat-sunk")
+    end
     cell.public_state == PUBLIC_REEF && return (terrain_symbol(REEF), terrain_tooltip(REEF), "cell-reef")
     if owner == PLAYER && !isnothing(cell.own_ship_type)
         return (ship_symbol(cell.own_ship_type), ship_label(cell.own_ship_type), "cell-occupied")
@@ -26,6 +29,40 @@ function purchase_rejection_message(rejection::PurchaseRejection)
     rejection == INSUFFICIENT_FUNDS && return "Saldo insuficiente para esta compra."
     rejection == QUOTA_EXHAUSTED && return "A cota desta arma acabou neste mapa."
     throw(ArgumentError("Rejeição de compra sem mensagem: $rejection"))
+end
+
+function fleet_status_text(status::FleetShipStatus)
+    state = status.state == FLEET_HIDDEN ? "oculto" :
+            status.state == FLEET_INTACT ? "intacto" :
+            status.state == FLEET_DAMAGED ? "danificado" : "afundado"
+    return "$(ship_label(status.ship_type)): $state"
+end
+
+function show_combat_history(window, events)
+    dialog = GtkWindow(; modal=true, title="Histórico completo")
+    Gtk4.transient_for(dialog, window)
+    content = configure_container!(GtkBox(:v); spacing=10)
+    content.width_request = 520
+    content.height_request = 480
+    push!(content, title_label("Histórico completo"))
+    list = GtkBox(:v)
+    list.spacing = 6
+    for event in reverse(events)
+        push!(list, GtkLabel(event.message; wrap=true, xalign=0))
+    end
+    isempty(events) && push!(list, GtkLabel("Nenhum ataque registrado."; xalign=0))
+    scroll = GtkScrolledWindow()
+    scroll[] = list
+    scroll.vexpand = true
+    push!(content, scroll)
+    close_button = styled!(GtkButton("Fechar"), "secondary-action")
+    signal_connect(close_button, "clicked") do _
+        close_dialog(dialog)
+    end
+    push!(content, close_button)
+    dialog[] = content
+    show(dialog)
+    return dialog
 end
 
 function battle_page(window, controller::CombatController)
@@ -84,6 +121,7 @@ function battle_page(window, controller::CombatController)
     board_grids = Dict{Participant, BoardGrid}()
     missile_selected = Ref(false)
     air_strike_axis = Ref{Union{Nothing, AirStrikeAxis}}(nothing)
+    fleet_labels = Dict{Participant, Any}()
 
     for (owner, heading) in ((PLAYER, "Sua frota"), (COMPUTER, "Frota inimiga"))
         box = GtkBox(:v)
@@ -93,10 +131,24 @@ function battle_page(window, controller::CombatController)
         board_grid = create_board_grid(initial_state.dimension)
         board_grids[owner] = board_grid
         push!(box, board_grid.widget)
+        fleet_labels[owner] = GtkLabel(""; wrap=true, xalign=0)
+        push!(box, styled!(fleet_labels[owner], "fleet-status"))
         push!(boards, box)
         owner_buttons = board_grid.buttons
         buttons[owner] = owner_buttons
     end
+    history_panel = styled!(GtkBox(:v), "history-panel")
+    history_panel.spacing = 6
+    history_panel.width_request = 260
+    push!(history_panel, field_label("Últimos eventos"))
+    recent_labels = [GtkLabel(""; wrap=true, xalign=0) for _ in 1:5]
+    foreach(label -> push!(history_panel, label), recent_labels)
+    history_button = styled!(GtkButton("Ver histórico completo"), "secondary-action")
+    signal_connect(history_button, "clicked") do _
+        show_combat_history(window, combat_state(controller).history)
+    end
+    push!(history_panel, history_button)
+    push!(boards, history_panel)
 
     function render_combat!(state=combat_state(controller))
         turn_indicator.label = state.turn == PLAYER ? "Turno: jogador" : "Turno: computador"
@@ -122,6 +174,8 @@ function battle_page(window, controller::CombatController)
             buy_button.sensitive = state.shop_available && item.remaining_quota > 0 && state.player_coins >= item.price
         end
         for owner in (PLAYER, COMPUTER)
+            fleet = owner == PLAYER ? state.player_fleet : state.computer_fleet
+            fleet_labels[owner].label = join(fleet_status_text.(fleet), "  •  ")
             cells = owner == PLAYER ? state.player_cells : state.computer_cells
             for row in 1:state.dimension, column in 1:state.dimension
                 button = buttons[owner][row, column]
@@ -135,6 +189,12 @@ function battle_page(window, controller::CombatController)
                     isnothing(air_strike_axis[]) && (missile_selected[] || (cell.public_state == UNKNOWN && cell.terrain != REEF))
             end
         end
+        for index in eachindex(recent_labels)
+            label = recent_labels[index]
+            label.visible = index <= length(state.recent_events)
+            label.label = label.visible ? state.recent_events[index].message : ""
+        end
+        history_button.sensitive = !isempty(state.history)
     end
 
     function clear_air_strike_preview!()
