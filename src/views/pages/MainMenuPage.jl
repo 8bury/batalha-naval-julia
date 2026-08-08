@@ -51,11 +51,7 @@ function main_menu(window)
 
     ranking_button = menu_button("Ranking")
     signal_connect(ranking_button, "clicked") do _
-        window[] = information_page(
-            window,
-            "Ranking",
-            "O ranking será disponibilizado em uma etapa posterior.",
-        )
+        window[] = ranking_page(window, results_repository())
     end
     push!(page, ranking_button)
 
@@ -76,4 +72,3 @@ function main_menu(window)
     push!(page, exit_button)
     return page
 end
-

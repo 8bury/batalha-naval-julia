@@ -95,10 +95,11 @@ positioning_update(
     valid::Union{Nothing, Bool},
 ) = PositioningUpdate(String(message), valid, positioning_state(controller))
 
-function start_combat(controller::PositioningController; rng=Random.default_rng(), clock=time)
+function start_combat(controller::PositioningController; rng=Random.default_rng(), clock=time,
+                      repository=NullResultRepository())
     can_start_combat(controller) || throw(ArgumentError("As frotas ainda não estão prontas."))
     return CombatController(controller.player_board, controller.computer_board;
-                            configuration=controller.configuration, rng, clock)
+                            configuration=controller.configuration, rng, clock, repository)
 end
 
 function reset_selection!(controller::PositioningController)

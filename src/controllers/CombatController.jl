@@ -14,6 +14,7 @@ export CombatController,
        AirStrikeUpdate,
        elapsed_seconds,
        match_summary,
+       save_completed_result!,
        play_again
 
 mutable struct CombatController{R<:AbstractRNG, C}
@@ -23,13 +24,17 @@ mutable struct CombatController{R<:AbstractRNG, C}
     clock::C
     started_at::Union{Nothing, Float64}
     ended_at::Union{Nothing, Float64}
+    repository::AbstractResultRepository
+    completion_key::String
+    result_saved::Bool
 end
 
 function CombatController(player::PositioningBoard, computer::PositioningBoard;
                           configuration=MatchConfiguration("Jogador", player.map, false),
-                          rng=Random.default_rng(), clock=time)
+                          rng=Random.default_rng(), clock=time,
+                          repository=NullResultRepository(), completion_key=string(uuid4()))
     return CombatController(create_combat_match(player, computer), configuration, rng,
-                            clock, nothing, nothing)
+                            clock, nothing, nothing, repository, completion_key, false)
 end
 
 combat_state(controller::CombatController) = combat_state(controller.match)
@@ -40,6 +45,7 @@ function record_timing!(controller::CombatController, valid::Bool)
     isnothing(controller.started_at) && (controller.started_at = now)
     !isnothing(controller.match.winner) && isnothing(controller.ended_at) &&
         (controller.ended_at = now)
+    !isnothing(controller.match.winner) && save_completed_result!(controller)
     return controller
 end
 
@@ -84,10 +90,19 @@ function match_summary(controller::CombatController)
                         controller.match.coins[PLAYER], score)
 end
 
+function save_completed_result!(controller::CombatController)
+    (isnothing(controller.match.winner) || controller.result_saved) && return false
+    save_result!(controller.repository, controller.completion_key, controller.configuration,
+                 match_summary(controller))
+    controller.result_saved = true
+    return true
+end
+
 """Cria uma revanche equivalente, com terreno e duas frotas novamente sorteados."""
 function play_again(controller::CombatController; rng=Random.default_rng(), clock=controller.clock)
     player, computer = create_match_boards(controller.configuration; rng)
     result = auto_place_ships!(player; rng)
     result.success || error("Nao foi possivel posicionar a frota da revanche.")
-    return CombatController(player, computer; configuration=controller.configuration, rng, clock)
+    return CombatController(player, computer; configuration=controller.configuration, rng, clock,
+                            repository=controller.repository)
 end

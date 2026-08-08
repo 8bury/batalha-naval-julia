@@ -98,8 +98,7 @@ function match_summary_page(window, controller::CombatController)
     push!(page, again)
     ranking = menu_button("Ver Ranking"; style="secondary-action")
     signal_connect(ranking, "clicked") do _
-        window[] = information_page(window, "Ranking",
-            "O ranking será disponibilizado na próxima etapa.")
+        window[] = ranking_page(window, controller.repository)
     end
     push!(page, ranking)
     push!(page, navigation_button(window, "Menu Principal", () -> main_menu(window)))

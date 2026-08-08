@@ -200,7 +200,7 @@ function positioning_page(window, controller::PositioningController)
         return nothing
     end
     signal_connect(confirm_fleet_button, "clicked") do _
-        window[] = battle_page(window, start_combat(controller))
+        window[] = battle_page(window, start_combat(controller; repository=results_repository()))
         return nothing
     end
 

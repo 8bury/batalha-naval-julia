@@ -4,8 +4,12 @@ authors = ["Batalha Naval contributors"]
 version = "0.1.0"
 
 [deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"
 Gtk4 = "9db2cae5-386f-4011-9d63-a5602296539b"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SQLite = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
 Gtk4 = "0.7"

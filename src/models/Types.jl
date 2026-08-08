@@ -114,6 +114,22 @@ struct MatchSummary
     score::ScoreBreakdown
 end
 
+abstract type AbstractResultRepository end
+
+struct MatchResult
+    id::Int
+    player_name::String
+    map::MapKind
+    score::Int
+    duration_seconds::Int
+    won::Bool
+    completed_at::String
+    special_terrain::Bool
+    hits::Int
+    surviving_ships::Int
+    intact_cells::Int
+end
+
 struct FleetComposition
     patrols::Int
     submarines::Int

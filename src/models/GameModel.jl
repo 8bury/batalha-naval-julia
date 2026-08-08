@@ -48,6 +48,8 @@ export AttackRejection,
        PUDDLE,
        MatchConfiguration,
        MatchSummary,
+       MatchResult,
+       AbstractResultRepository,
        ScoreBreakdown,
        MapKind,
        MapOption,
@@ -84,6 +86,9 @@ export AttackRejection,
        validate_player_name,
        calculate_score,
        format_duration
+
+function save_result! end
+function top_results end
 
 # Implementações coesas do Model, carregadas na ordem de dependência.
 include("Types.jl")

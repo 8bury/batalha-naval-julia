@@ -2,6 +2,7 @@ module Application
 
 using ..BatalhaNaval
 using Random
+using UUIDs
 import ..BatalhaNaval: CombatMatch,
                         PlacementPreview,
                         PositioningBoard,
@@ -23,7 +24,13 @@ import ..BatalhaNaval: CombatMatch,
                         remove_ship_at!,
                         ship_at,
                         ship_sunk,
+                        save_result!,
+                        top_results,
                         terrain_at
+
+struct NullResultRepository <: AbstractResultRepository end
+save_result!(::NullResultRepository, args...; kwargs...) = nothing
+top_results(::NullResultRepository, ::MapKind; limit=10) = MatchResult[]
 
 include("PositioningController.jl")
 include("SetupController.jl")
