@@ -3,6 +3,7 @@
     information = read(joinpath(root, "src", "views", "pages", "InformationPage.jl"), String)
     battle = read(joinpath(root, "src", "views", "pages", "BattlePage.jl"), String)
     window = read(joinpath(root, "src", "views", "ApplicationWindow.jl"), String)
+    ranking = read(joinpath(root, "src", "views", "pages", "RankingPage.jl"), String)
     readme = read(joinpath(root, "README.md"), String)
 
     for section in ("Objetivo", "Configuração e posicionamento", "Turnos e terrenos",
@@ -17,6 +18,10 @@
     @test occursin("1280, 800", window)
     @test occursin("width_request = 1000", window)
     @test occursin("height_request = 650", window)
+    ranking_height = match(r"RANKING_MIN_CONTENT_HEIGHT\s*=\s*(\d+)", ranking)
+    @test !isnothing(ranking_height)
+    @test parse(Int, ranking_height.captures[1]) >= 120
+    @test occursin("scroll.min_content_height = RANKING_MIN_CONTENT_HEIGHT", ranking)
 
     for launcher in ("run.ps1", "run.sh")
         script = read(joinpath(root, launcher), String)

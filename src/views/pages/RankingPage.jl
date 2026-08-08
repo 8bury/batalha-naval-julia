@@ -1,4 +1,5 @@
 map_ranking_name(map::MapKind) = map == PUDDLE ? "Poça" : map == LAKE ? "Lago" : "Oceano"
+const RANKING_MIN_CONTENT_HEIGHT = 160
 
 function ranking_page(window, repository::AbstractResultRepository; selected=PUDDLE)
     page = configure_container!(GtkBox(:v); spacing=12)
@@ -28,6 +29,8 @@ function ranking_page(window, repository::AbstractResultRepository; selected=PUD
     isempty(results) && push!(list, GtkLabel("Nenhuma partida concluída neste mapa."; xalign=0))
     scroll = GtkScrolledWindow()
     scroll.vexpand = true
+    # Reserva cabeçalho + ao menos uma linha; resultados adicionais permanecem roláveis.
+    scroll.min_content_height = RANKING_MIN_CONTENT_HEIGHT
     scroll[] = list
     push!(page, scroll)
     push!(page, navigation_button(window, "Voltar ao Menu", () -> main_menu(window); style="quiet-action", expand=false))
