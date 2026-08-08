@@ -27,6 +27,11 @@ using Random
         @test update.result.valid
         @test update.state.computer_coins == 10 * (update.result.hits + update.result.sunk)
         @test update.state.computer_inventory[AIR_STRIKE] == 0
+        event = update.state.history[end]
+        @test event.actor == COMPUTER
+        @test event.weapon == AIR_STRIKE
+        @test occursin("Computador — Ataque Aéreo:", event.message)
+        @test all(ship -> occursin(ship_label(ship), event.message) == (ship in event.sunk_ships), (PATROL, SUBMARINE, CRUISER))
     end
 
     @testset "usa missil quando ataque aereo nao esta disponivel" begin
@@ -40,6 +45,11 @@ using Random
         @test update.result.valid
         @test update.state.computer_coins == 20 + 10 * (update.result.hits + update.result.sunk)
         @test update.state.computer_inventory[MISSILE] == 0
+        event = update.state.history[end]
+        @test event.actor == COMPUTER
+        @test event.weapon == MISSILE
+        @test occursin("Computador — Míssil:", event.message)
+        @test all(ship -> occursin(ship_label(ship), event.message) == (ship in event.sunk_ships), (PATROL, SUBMARINE, CRUISER))
     end
 
     @testset "sem arma utilizavel executa o ataque basico" begin

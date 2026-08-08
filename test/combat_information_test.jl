@@ -11,9 +11,14 @@
     ])
     match = create_combat_match(player, enemy)
 
+    initial = combat_state(match)
+    @test all(status -> status.ship_type === nothing, initial.computer_fleet)
+    @test all(status -> isempty(status.cells), initial.computer_fleet)
+
     hit = player_attack!(match, 2, 2).state
     @test hit.computer_cells[2, 2].revealed_ship_type === nothing
     @test hit.computer_fleet[2].state == FLEET_HIDDEN
+    @test hit.computer_fleet[2].ship_type === nothing
     @test isempty(hit.computer_fleet[2].cells)
     @test hit.history[1].message == "Jogador — B2: acerto."
     @test !occursin("Submarino", hit.history[1].message)

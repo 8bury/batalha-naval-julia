@@ -80,7 +80,7 @@ end
 end
 
 struct FleetShipStatus
-    ship_type::ShipType
+    ship_type::Union{Nothing, ShipType}
     state::FleetShipState
     cells::Vector{Tuple{Int, Int}}
 end

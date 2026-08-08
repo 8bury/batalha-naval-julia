@@ -161,7 +161,8 @@ function fleet_status(match::CombatMatch, owner::Participant)
         hits = count(cell -> cell in attacks, cells)
         sunk = hits == length(cells)
         state = sunk ? FLEET_SUNK : owner == COMPUTER ? FLEET_HIDDEN : hits > 0 ? FLEET_DAMAGED : FLEET_INTACT
-        FleetShipStatus(placement.ship_type, state, sunk || owner == PLAYER ? cells : Tuple{Int, Int}[])
+        public_type = owner == PLAYER || sunk ? placement.ship_type : nothing
+        FleetShipStatus(public_type, state, sunk || owner == PLAYER ? cells : Tuple{Int, Int}[])
     end for placement in board.placements]
 end
 

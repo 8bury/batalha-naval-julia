@@ -35,7 +35,8 @@ function fleet_status_text(status::FleetShipStatus)
     state = status.state == FLEET_HIDDEN ? "oculto" :
             status.state == FLEET_INTACT ? "intacto" :
             status.state == FLEET_DAMAGED ? "danificado" : "afundado"
-    return "$(ship_label(status.ship_type)): $state"
+    label = isnothing(status.ship_type) ? "Embarcação inimiga" : ship_label(status.ship_type)
+    return "$label: $state"
 end
 
 function show_combat_history(window, events)

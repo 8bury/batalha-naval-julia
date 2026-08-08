@@ -46,6 +46,12 @@
         @test update.state.player_inventory[AIR_STRIKE] == 0
         @test update.state.turn == PLAYER
         @test update.directive == AWAIT_PLAYER
+        event = update.state.history[end]
+        @test event.actor == PLAYER
+        @test event.weapon == AIR_STRIKE
+        @test occursin("Ataque Aéreo", event.message)
+        @test occursin("Cruzador", event.message)
+        @test !occursin("Submarino", event.message)
     end
 
     @testset "processa coluna e encerra o turno sem novo acerto" begin
