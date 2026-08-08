@@ -1,4 +1,4 @@
-map_ranking_name(map::MapKind) = map == PUDDLE ? "PoÃ§a" : map == LAKE ? "Lago" : "Oceano"
+map_ranking_name(map::MapKind) = map == PUDDLE ? "Poça" : map == LAKE ? "Lago" : "Oceano"
 
 function ranking_page(window, repository::AbstractResultRepository; selected=PUDDLE)
     page = configure_container!(GtkBox(:v); spacing=12)
@@ -18,14 +18,14 @@ function ranking_page(window, repository::AbstractResultRepository; selected=PUD
     list.spacing = 8
     push!(list, GtkLabel("#   Nome   Pontos   Tempo   Resultado   Data   Terrenos"; xalign=0))
     for (position, result) in enumerate(results)
-        outcome = result.won ? "VitÃ³ria" : "Derrota"
-        terrain = result.special_terrain ? "Sim" : "NÃ£o"
+        outcome = result.won ? "Vitória" : "Derrota"
+        terrain = result.special_terrain ? "Sim" : "Não"
         line = "$(position)   $(result.player_name)   $(result.score)   $(format_duration(result.duration_seconds))   $outcome   $(result.completed_at)   $terrain"
         label = GtkLabel(line; xalign=0, selectable=true)
         label.tooltip_text = "Acertos: $(result.hits) | Sobreviventes: $(result.surviving_ships) | Casas intactas: $(result.intact_cells)"
         push!(list, label)
     end
-    isempty(results) && push!(list, GtkLabel("Nenhuma partida concluÃ­da neste mapa."; xalign=0))
+    isempty(results) && push!(list, GtkLabel("Nenhuma partida concluída neste mapa."; xalign=0))
     scroll = GtkScrolledWindow()
     scroll.vexpand = true
     scroll[] = list

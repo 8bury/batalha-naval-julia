@@ -17,11 +17,12 @@ export CombatController,
        save_completed_result!,
        play_again
 
-mutable struct CombatController{R<:AbstractRNG, C}
+mutable struct CombatController{R<:AbstractRNG, C, D}
     match::CombatMatch
     configuration::MatchConfiguration
     rng::R
     clock::C
+    completed_at::D
     started_at::Union{Nothing, Float64}
     ended_at::Union{Nothing, Float64}
     repository::AbstractResultRepository
@@ -32,9 +33,10 @@ end
 function CombatController(player::PositioningBoard, computer::PositioningBoard;
                           configuration=MatchConfiguration("Jogador", player.map, false),
                           rng=Random.default_rng(), clock=time,
-                          repository=NullResultRepository(), completion_key=string(uuid4()))
+                          completed_at=Dates.now, repository=NullResultRepository(),
+                          completion_key=string(uuid4()))
     return CombatController(create_combat_match(player, computer), configuration, rng,
-                            clock, nothing, nothing, repository, completion_key, false)
+                            clock, completed_at, nothing, nothing, repository, completion_key, false)
 end
 
 combat_state(controller::CombatController) = combat_state(controller.match)
@@ -93,7 +95,7 @@ end
 function save_completed_result!(controller::CombatController)
     (isnothing(controller.match.winner) || controller.result_saved) && return false
     save_result!(controller.repository, controller.completion_key, controller.configuration,
-                 match_summary(controller))
+                 match_summary(controller); completed_at=controller.completed_at())
     controller.result_saved = true
     return true
 end
@@ -104,5 +106,5 @@ function play_again(controller::CombatController; rng=Random.default_rng(), cloc
     result = auto_place_ships!(player; rng)
     result.success || error("Nao foi possivel posicionar a frota da revanche.")
     return CombatController(player, computer; configuration=controller.configuration, rng, clock,
-                            repository=controller.repository)
+                            completed_at=controller.completed_at, repository=controller.repository)
 end

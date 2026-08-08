@@ -3,6 +3,7 @@ module Application
 using ..BatalhaNaval
 using Random
 using UUIDs
+using Dates
 import ..BatalhaNaval: CombatMatch,
                         PlacementPreview,
                         PositioningBoard,

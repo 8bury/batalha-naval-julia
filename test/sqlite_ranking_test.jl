@@ -51,6 +51,37 @@ using Dates
         @test controller.result_saved
         @test !save_completed_result!(controller)
         @test length(top_results(repository, PUDDLE; limit=30)) == 14
+
+        defeat_config = MatchConfiguration("Carlos", OCEAN, false)
+        defeated_player, victorious_computer = create_match_boards(defeat_config)
+        auto_place_ships!(defeated_player)
+        finished_at = DateTime(2026, 2, 3, 4, 5, 6, 789)
+        defeat = CombatController(defeated_player, victorious_computer;
+            configuration=defeat_config, repository, completion_key="defeat",
+            clock=() -> 12.0, completed_at=() -> finished_at)
+        player_cells = collect(Iterators.flatten(placement_cells.(defeated_player.placements)))
+        last_player_cell = pop!(player_cells)
+        for row in 1:defeated_player.dimension, column in 1:defeated_player.dimension
+            (row, column) == last_player_cell || push!(defeat.match.computer_attacks, (row, column))
+        end
+        defeat.match.turn = COMPUTER
+        defeat.match.shop_available[COMPUTER] = false
+        defeat.started_at = 2.0
+        @test computer_step!(defeat).state.winner == COMPUTER
+        @test defeat.result_saved
+        @test !save_completed_result!(defeat)
+
+        persisted = only(top_results(repository, OCEAN; limit=20))
+        @test persisted.player_name == "Carlos"
+        @test persisted.map == OCEAN
+        @test persisted.score == 990
+        @test persisted.duration_seconds == 10
+        @test !persisted.won
+        @test persisted.completed_at == "2026-02-03T04:05:06.789"
+        @test !persisted.special_terrain
+        @test persisted.hits == 0
+        @test persisted.surviving_ships == 0
+        @test persisted.intact_cells == 0
         close(repository)
     end
 end

@@ -3,6 +3,7 @@
     application_path = joinpath(@__DIR__, "..", "src", "views", "GtkApplication.jl")
     launcher = read(launcher_path, String)
     application = read(application_path, String)
+    ranking = read(joinpath(@__DIR__, "..", "src", "views", "pages", "RankingPage.jl"), String)
 
     backend_position = findfirst("ENV[\"PANGOCAIRO_BACKEND\"] = \"fc\"", launcher)
     gtk_position = findfirst("GtkApplication.jl", launcher)
@@ -13,4 +14,6 @@
         @test first(backend_position) < first(gtk_position)
     end
     @test !occursin("FontRendering_MANUAL", application)
+    @test all(text -> occursin(text, ranking), ("Poça", "Vitória", "Não", "concluída"))
+    @test !occursin("Ã", ranking)
 end
