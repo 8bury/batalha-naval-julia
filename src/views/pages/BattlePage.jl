@@ -119,6 +119,8 @@ function battle_page(window, controller::CombatController)
     shop_button = styled!(GtkButton("Abrir loja"), "secondary-action")
     missile_button = styled!(GtkButton("Usar Míssil 2×2"), "secondary-action")
     air_strike_button = styled!(GtkButton("Usar Ataque Aéreo"), "secondary-action")
+    sound_button = styled!(GtkButton("🔊 Sons: ligados"), "secondary-action")
+    sound_button.tooltip_text = "Silenciar todos os sons da partida"
     strike_row_button = styled!(GtkButton("Linha"), "secondary-action")
     strike_column_button = styled!(GtkButton("Coluna"), "secondary-action")
     push!(battle_bar, turn_indicator)
@@ -127,6 +129,7 @@ function battle_page(window, controller::CombatController)
     push!(battle_bar, shop_button)
     push!(battle_bar, missile_button)
     push!(battle_bar, air_strike_button)
+    push!(battle_bar, sound_button)
     push!(battle_bar, strike_row_button)
     push!(battle_bar, strike_column_button)
     push!(page, battle_bar)
@@ -165,6 +168,37 @@ function battle_page(window, controller::CombatController)
     air_strike_axis = Ref{Union{Nothing, AirStrikeAxis}}(nothing)
     fleet_labels = Dict{Participant, Any}()
     summary_shown = Ref(false)
+    audio = CombatAudio()
+    delivered_events = Ref(length(initial_state.history))
+    shake_generation = Ref(0)
+
+    function shake_content!()
+        shake_generation[] += 1
+        generation = shake_generation[]
+        step = Ref(0)
+        Gtk4.GLib.g_timeout_add(50) do
+            generation == shake_generation[] || return false
+            step[] += 1
+            if step[] <= 5
+                page.margin_start = isodd(step[]) ? 36 : 20
+                return true
+            end
+            page.margin_start = 28
+            return false
+        end
+        return nothing
+    end
+
+    function deliver_feedback!(state)
+        length(state.history) > delivered_events[] || return nothing
+        for event in state.history[(delivered_events[] + 1):end]
+            feedback = combat_feedback(event)
+            play_audio!(audio, feedback.sound)
+            feedback.shake && shake_content!()
+        end
+        delivered_events[] = length(state.history)
+        return nothing
+    end
 
     function finish_if_needed!(state)
         if !isnothing(state.winner) && !summary_shown[]
@@ -203,6 +237,7 @@ function battle_page(window, controller::CombatController)
     push!(boards, history_panel)
 
     function render_combat!(state=combat_state(controller))
+        deliver_feedback!(state)
         timer_indicator.label = "Tempo: $(format_duration(elapsed_seconds(controller)))"
         turn_indicator.label = state.turn == PLAYER ? "Turno: jogador" : "Turno: computador"
         balance_indicator.label = "Saldo: $(state.player_coins) moedas"
@@ -300,6 +335,13 @@ function battle_page(window, controller::CombatController)
         end
     end
 
+    signal_connect(sound_button, "clicked") do _
+        set_muted!(audio, !audio.muted)
+        sound_button.label = audio.muted ? "🔇 Sons: desligados" : "🔊 Sons: ligados"
+        sound_button.tooltip_text = audio.muted ?
+            "Reativar os sons da partida" : "Silenciar todos os sons da partida"
+    end
+
     signal_connect(missile_button, "clicked") do _
         missile_selected[] = !missile_selected[]
         air_strike_axis[] = nothing
@@ -339,9 +381,10 @@ function battle_page(window, controller::CombatController)
         elseif update.state.winner == PLAYER
             status.label = "Vitória! A frota inimiga foi destruída."
         elseif update.result.hits > 0
-            status.label = "$weapon_name: $(update.result.hits) acerto(s), $(update.result.sunk) afundamento(s). Você continua."
+            symbol = update.result.sunk > 0 ? "■" : "×"
+            status.label = "$symbol $weapon_name: $(update.result.hits) acerto(s), $(update.result.sunk) afundamento(s). Você continua."
         else
-            status.label = "$weapon_name sem acertos. O computador está escolhendo um alvo…"
+            status.label = "○ Água — $weapon_name sem acertos. O computador está escolhendo um alvo…"
         end
         update.result.valid && clear_selection!()
         render_combat!(update.state)
@@ -367,27 +410,27 @@ function battle_page(window, controller::CombatController)
             status.label = "Vitória! A frota inimiga foi destruída."
             add_css_class(status, "combat-victory")
         elseif player_result.outcome == ATTACK_MISS
-            status.label = "Água. O computador está escolhendo um alvo…"
+            status.label = "○ Água. O computador está escolhendo um alvo…"
         elseif player_result.outcome == ATTACK_SUNK
-            status.label = "Embarcação inimiga afundada! Você continua no turno."
+            status.label = "■ Embarcação inimiga afundada! Você continua no turno."
         else
-            status.label = "Acerto! Você continua no turno."
+            status.label = "× Acerto! Você continua no turno."
         end
     end
 
     function schedule_computer_step!()
         Gtk4.GLib.g_timeout_add(600) do
             update = computer_step!(controller)
-            result = update.result
+            outcome = update.state.history[end].outcome
             if update.state.winner == COMPUTER
                 status.label = "Derrota. Sua frota foi destruída."
                 add_css_class(status, "combat-defeat")
-            elseif result.outcome == ATTACK_MISS
-                status.label = "O computador errou. Seu turno."
-            elseif result.outcome == ATTACK_SUNK
-                status.label = "O computador afundou uma embarcação e continua atacando…"
+            elseif outcome == ATTACK_MISS
+                status.label = "○ Água — o computador errou. Seu turno."
+            elseif outcome == ATTACK_SUNK
+                status.label = "■ O computador afundou uma embarcação e continua atacando…"
             else
-                status.label = "O computador acertou e continua atacando…"
+                status.label = "× O computador acertou e continua atacando…"
             end
             render_combat!(update.state)
             finish_if_needed!(update.state) && return false

@@ -3,6 +3,12 @@ export AttackRejection,
        CombatState,
        CombatUpdate,
        CombatEvent,
+       CombatFeedback,
+       SoundCue,
+       NO_SOUND,
+       WATER_SOUND,
+       EXPLOSION_SOUND,
+       combat_feedback,
        FleetShipStatus,
        FleetShipState,
        FLEET_HIDDEN,
@@ -97,5 +103,6 @@ include("FleetPlacement.jl")
 include("Terrain.jl")
 include("Positioning.jl")
 include("Combat.jl")
+include("CombatFeedback.jl")
 include("ComputerStrategy.jl")
 include("Scoring.jl")

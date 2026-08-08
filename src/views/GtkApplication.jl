@@ -15,6 +15,7 @@ results_repository() = isnothing(RESULTS_REPOSITORY[]) ?
 # permanecem internos; a interface externa continua sendo run_application.
 include("widgets/CommonWidgets.jl")
 include("widgets/BoardGrid.jl")
+include("CombatAudio.jl")
 include("pages/InformationPage.jl")
 include("pages/RankingPage.jl")
 include("pages/BattlePage.jl")
