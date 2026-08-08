@@ -190,20 +190,38 @@ function battle_page(window, controller::CombatController)
     end
 
     function deliver_feedback!(state)
-        length(state.history) > delivered_events[] || return nothing
-        for event in state.history[(delivered_events[] + 1):end]
+        pending = pending_feedback_events(state.history, delivered_events[])
+        for event in pending.events
             feedback = combat_feedback(event)
             play_audio!(audio, feedback.sound)
             feedback.shake && shake_content!()
         end
-        delivered_events[] = length(state.history)
+        delivered_events[] = pending.delivered
         return nothing
     end
 
     function finish_if_needed!(state)
         if !isnothing(state.winner) && !summary_shown[]
             summary_shown[] = true
-            window[] = match_summary_page(window, controller)
+            final_event = state.history[end]
+            delay_ms = combat_completion_delay_ms(final_event)
+            if delay_ms == 0
+                window[] = match_summary_page(window, controller)
+                # Retém o WAV até o fim máximo da reprodução assíncrona (240 ms).
+                Gtk4.GLib.g_timeout_add(260) do
+                    stop_audio!(audio)
+                    return false
+                end
+            else
+                Gtk4.GLib.g_timeout_add(delay_ms) do
+                    # A navegação pode abandonar a batalha antes do callback.
+                    if window[] === page
+                        stop_audio!(audio)
+                        window[] = match_summary_page(window, controller)
+                    end
+                    return false
+                end
+            end
             return true
         end
         return false

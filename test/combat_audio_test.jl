@@ -8,6 +8,7 @@ include(joinpath(@__DIR__, "..", "src", "views", "CombatAudio.jl"))
     audio = CombatAudio()
     set_muted!(audio, true)
     @test !play_audio!(audio, WATER_SOUND)
+    @test !play_audio!(audio, EXPLOSION_SOUND)
     @test isnothing(audio.active_buffer)
     set_muted!(audio, false)
     @test !audio.muted
