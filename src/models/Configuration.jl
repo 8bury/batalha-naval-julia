@@ -39,8 +39,8 @@ const TERRAIN_SYMBOLS = Dict(
 )
 
 const TERRAIN_TOOLTIPS = Dict(
-    REEF => "Recife — nenhuma embarcação pode ocupar esta casa.",
-    SHALLOW_WATER => "Águas Rasas — somente Patrulhas podem ocupar esta casa.",
+    REEF => "Recife - nenhuma embarcação pode ocupar esta casa.",
+    SHALLOW_WATER => "Águas Rasas - somente Patrulhas podem ocupar esta casa.",
 )
 
 const WEAPON_PRICES = Dict(MISSILE => 30, AIR_STRIKE => 50)

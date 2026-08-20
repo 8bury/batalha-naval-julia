@@ -105,7 +105,7 @@ function positioning_page(window, controller::PositioningController)
                 if !isnothing(cell.ship_type)
                     cell_button.label = ship_symbol(cell.ship_type)
                     cell_button.tooltip_text = isnothing(terrain) ?
-                        "$(Char(Int('A') + column - 1))$row — clique para remover" :
+                        "$(Char(Int('A') + column - 1))$row - clique para remover" :
                         "$(terrain_tooltip(terrain)) Clique para remover a embarcação."
                     add_css_class(cell_button, "cell-occupied")
                     if terrain == REEF

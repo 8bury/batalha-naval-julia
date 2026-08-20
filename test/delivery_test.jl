@@ -31,5 +31,4 @@
     end
     @test occursin("Dados locais", readme)
     @test occursin("Arch Linux: escopo da verificação", readme)
-    @test isfile(joinpath(root, "docs", "manual-validation-windows.md"))
 end

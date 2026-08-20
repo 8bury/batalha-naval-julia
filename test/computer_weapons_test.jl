@@ -30,7 +30,7 @@ using Random
         event = update.state.history[end]
         @test event.actor == COMPUTER
         @test event.weapon == AIR_STRIKE
-        @test occursin("Computador — Ataque Aéreo:", event.message)
+        @test occursin("Computador - Ataque Aéreo:", event.message)
         @test all(ship -> occursin(ship_label(ship), event.message) == (ship in event.sunk_ships), (PATROL, SUBMARINE, CRUISER))
     end
 
@@ -48,7 +48,7 @@ using Random
         event = update.state.history[end]
         @test event.actor == COMPUTER
         @test event.weapon == MISSILE
-        @test occursin("Computador — Míssil:", event.message)
+        @test occursin("Computador - Míssil:", event.message)
         @test all(ship -> occursin(ship_label(ship), event.message) == (ship in event.sunk_ships), (PATROL, SUBMARINE, CRUISER))
     end
 

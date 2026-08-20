@@ -32,7 +32,7 @@ function record_event!(match, actor, weapon, target, outcome, hits, sunk_ships)
     subject = isnothing(weapon) ? target : weapon_label(weapon)
     push!(match.history, CombatEvent(
         actor, weapon, target, outcome, hits, sunk_ships,
-        "$(participant_label(actor)) — $subject: $result.",
+        "$(participant_label(actor)) - $subject: $result.",
     ))
 end
 

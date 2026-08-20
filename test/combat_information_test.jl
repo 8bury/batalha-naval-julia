@@ -20,7 +20,7 @@
     @test hit.computer_fleet[2].state == FLEET_HIDDEN
     @test hit.computer_fleet[2].ship_type === nothing
     @test isempty(hit.computer_fleet[2].cells)
-    @test hit.history[1].message == "Jogador — B2: acerto."
+    @test hit.history[1].message == "Jogador - B2: acerto."
     @test !occursin("Submarino", hit.history[1].message)
 
     sunk = player_attack!(match, 2, 3).state
@@ -58,7 +58,7 @@ end
     match.turn = COMPUTER
     computer = computer_step!(match; rng=MersenneTwister(202)).state.history[end]
     @test computer.actor == COMPUTER
-    @test startswith(computer.message, "Computador — ")
+    @test startswith(computer.message, "Computador - ")
 end
 
 @testset "projeção aliada distingue dano e afundamento" begin

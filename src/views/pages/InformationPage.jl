@@ -40,7 +40,7 @@ function information_page(window)
 end
 
 function show_battle_instructions(window)
-    dialog = GtkWindow(; modal=false, title="Instruções — batalha em andamento")
+    dialog = GtkWindow(; modal=false, title="Instruções - batalha em andamento")
     Gtk4.transient_for(dialog, window)
     dialog.default_width = 820
     dialog.default_height = 650

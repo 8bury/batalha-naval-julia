@@ -42,12 +42,6 @@ Os testes não carregam Gtk4 nem abrem janelas:
 julia --project=. test/runtests.jl
 ```
 
-No Windows, o smoke test gráfico abre a janela, verifica se ela responde e a fecha:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\test\ui_startup_smoke.ps1
-```
-
 ## Como jogar
 
 Use **Instruções** no menu para consultar objetivo, posicionamento, terrenos,
@@ -68,14 +62,8 @@ esse arquivo apaga somente o ranking local; não há sincronização em nuvem.
 ## Arch Linux: escopo da verificação
 
 O launcher POSIX e o ambiente Julia são fornecidos e a suíte de domínio é
-portável. No Windows, a suíte e o smoke de abertura foram automatizados; o fluxo
-interativo completo permanece no relatório manual abaixo. No Arch, o áudio usa
-o primeiro reprodutor disponível entre `pw-play` (PipeWire), `aplay` (ALSA) e
-`ffplay` (FFmpeg). A
-aparência, integração com o gerenciador de janelas e disponibilidade de uma sessão
-gráfica/GPU dependem da instalação local e precisam de conferência manual. Em
-sessões mínimas, instale os drivers gráficos e bibliotecas de áudio usuais do
-sistema antes do teste.
-
-O roteiro completo de aceite está em
-[`docs/manual-validation-windows.md`](docs/manual-validation-windows.md).
+portável. No Arch, o áudio usa o primeiro reprodutor disponível entre `pw-play`
+(PipeWire), `aplay` (ALSA) e `ffplay` (FFmpeg). A aparência, a integração com o
+gerenciador de janelas e a disponibilidade de uma sessão gráfica/GPU dependem da
+instalação local e precisam de conferência manual. Em sessões mínimas, instale os
+drivers gráficos e as bibliotecas de áudio usuais do sistema antes do teste.

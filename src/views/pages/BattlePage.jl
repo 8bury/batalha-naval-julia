@@ -141,7 +141,7 @@ function battle_page(window, controller::CombatController)
     signal_connect(instructions_button, "clicked") do _
         show_battle_instructions(window)
     end
-    status = styled!(GtkLabel("Seu turno — escolha uma coordenada no tabuleiro inimigo."; wrap=true, xalign=0), "combat-status")
+    status = styled!(GtkLabel("Seu turno - escolha uma coordenada no tabuleiro inimigo."; wrap=true, xalign=0), "combat-status")
     push!(page, status)
     shop_panel = styled!(GtkBox(:v), "shop-panel")
     shop_panel.spacing = 8
@@ -293,7 +293,7 @@ function battle_page(window, controller::CombatController)
         end
         for item in state.shop_items
             description, buy_button = shop_rows[item.weapon]
-            description.label = "$(weapon_label(item.weapon)) — $(item.price) moedas | cota: $(item.remaining_quota) | inventário: $(item.inventory_count)"
+            description.label = "$(weapon_label(item.weapon)) - $(item.price) moedas | cota: $(item.remaining_quota) | inventário: $(item.inventory_count)"
             buy_button.sensitive = state.shop_available && item.remaining_quota > 0 && state.player_coins >= item.price
         end
         for owner in (PLAYER, COMPUTER)
@@ -306,7 +306,7 @@ function battle_page(window, controller::CombatController)
                 cell = cells[row, column]
                 label, tooltip, css_class = combat_cell_appearance(cell, owner)
                 button.label = label
-                button.tooltip_text = "$(Char(Int('A') + column - 1))$row — $tooltip"
+                button.tooltip_text = "$(Char(Int('A') + column - 1))$row - $tooltip"
                 add_css_class(button, css_class)
                 button.sensitive = owner == COMPUTER && isnothing(state.winner) && state.turn == PLAYER &&
                     isnothing(air_strike_axis[]) && (missile_selected[] || (cell.public_state == UNKNOWN && cell.terrain != REEF))
@@ -382,8 +382,8 @@ function battle_page(window, controller::CombatController)
         air_strike_axis[] = nothing
         clear_missile_preview!()
         status.label = missile_selected[] ?
-            "Míssil selecionado — escolha o canto superior esquerdo da área 2×2." :
-            "Míssil cancelado — escolha uma coordenada para o ataque básico."
+            "Míssil selecionado - escolha o canto superior esquerdo da área 2×2." :
+            "Míssil cancelado - escolha uma coordenada para o ataque básico."
         render_combat!()
     end
 
@@ -393,20 +393,20 @@ function battle_page(window, controller::CombatController)
         air_strike_axis[] = isnothing(air_strike_axis[]) ? STRIKE_ROW : nothing
         clear_missile_preview!()
         status.label = isnothing(air_strike_axis[]) ?
-            "Ataque Aéreo cancelado — escolha uma coordenada para o ataque básico." :
-            "Ataque Aéreo selecionado — escolha Linha ou Coluna e confirme pelo cabeçalho inimigo."
+            "Ataque Aéreo cancelado - escolha uma coordenada para o ataque básico." :
+            "Ataque Aéreo selecionado - escolha Linha ou Coluna e confirme pelo cabeçalho inimigo."
         render_combat!()
     end
 
     signal_connect(strike_row_button, "clicked") do _
         air_strike_axis[] = STRIKE_ROW
-        status.label = "Ataque Aéreo em linha — passe pelo número e clique para confirmar."
+        status.label = "Ataque Aéreo em linha - passe pelo número e clique para confirmar."
         render_combat!()
     end
 
     signal_connect(strike_column_button, "clicked") do _
         air_strike_axis[] = STRIKE_COLUMN
-        status.label = "Ataque Aéreo em coluna — passe pela letra e clique para confirmar."
+        status.label = "Ataque Aéreo em coluna - passe pela letra e clique para confirmar."
         render_combat!()
     end
 
@@ -419,7 +419,7 @@ function battle_page(window, controller::CombatController)
             symbol = update.result.sunk > 0 ? "■" : "×"
             status.label = "$symbol $weapon_name: $(update.result.hits) acerto(s), $(update.result.sunk) afundamento(s). Você continua."
         else
-            status.label = "○ Água — $weapon_name sem acertos. O computador está escolhendo um alvo…"
+            status.label = "○ Água - $weapon_name sem acertos. O computador está escolhendo um alvo…"
         end
         update.result.valid && clear_selection!()
         render_combat!(update.state)
@@ -462,7 +462,7 @@ function battle_page(window, controller::CombatController)
                 status.label = "Derrota. Sua frota foi destruída."
                 add_css_class(status, "combat-defeat")
             elseif outcome == ATTACK_MISS
-                status.label = "○ Água — o computador errou. Seu turno."
+                status.label = "○ Água - o computador errou. Seu turno."
             elseif outcome == ATTACK_SUNK
                 status.label = "■ O computador afundou uma embarcação e continua atacando…"
             else
