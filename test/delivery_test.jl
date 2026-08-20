@@ -1,7 +1,7 @@
 @testset "instruções e entrega" begin
     root = joinpath(@__DIR__, "..")
     information = read(joinpath(root, "src", "views", "pages", "InformationPage.jl"), String)
-    battle = read(joinpath(root, "src", "views", "pages", "BattlePage.jl"), String)
+    battle = read(joinpath(root, "src", "views", "battle", "BattlePage.jl"), String)
     window = read(joinpath(root, "src", "views", "ApplicationWindow.jl"), String)
     ranking = read(joinpath(root, "src", "views", "pages", "RankingPage.jl"), String)
     readme = read(joinpath(root, "README.md"), String)

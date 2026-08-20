@@ -42,6 +42,29 @@ Os testes não carregam Gtk4 nem abrem janelas:
 julia --project=. test/runtests.jl
 ```
 
+## Organização do código
+
+O ponto de entrada do pacote é `src/BatalhaNaval.jl`. A implementação está
+separada pelas responsabilidades do jogo:
+
+```text
+src/
+├── models/
+│   ├── configuration/  # mapas, frotas, armas e configuração da partida
+│   ├── positioning/    # terreno, validação e posicionamento das embarcações
+│   ├── combat/         # ataques, loja, estado do combate e computador
+│   └── scoring/        # resumo, duração e pontuação
+├── controllers/        # coordenação entre domínio e interface
+├── persistence/        # armazenamento do ranking
+└── views/
+    ├── battle/         # tela, histórico e resumo do combate
+    ├── pages/          # demais páginas da aplicação
+    └── widgets/        # componentes Gtk reutilizados
+```
+
+`src/models/GameModel.jl` compõe os arquivos do domínio na ordem das
+dependências. `src/views/GtkApplication.jl` faz o mesmo para a interface Gtk.
+
 ## Como jogar
 
 Use **Instruções** no menu para consultar objetivo, posicionamento, terrenos,

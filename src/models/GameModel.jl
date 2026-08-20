@@ -131,13 +131,24 @@ export AttackRejection,
 function save_result! end
 function top_results end
 
-# Implementações coesas do Model, carregadas na ordem de dependência.
-include("Types.jl")
-include("Configuration.jl")
-include("FleetPlacement.jl")
-include("Terrain.jl")
-include("Positioning.jl")
-include("Combat.jl")
-include("CombatFeedback.jl")
-include("ComputerStrategy.jl")
-include("Scoring.jl")
+# Tipos do domínio, carregados antes das regras que os utilizam.
+include("configuration/Types.jl")
+include("positioning/Types.jl")
+include("combat/Types.jl")
+include("scoring/Types.jl")
+
+# Regras do domínio, carregadas na ordem de dependência.
+include("configuration/Configuration.jl")
+include("positioning/FleetPlacement.jl")
+include("positioning/Terrain.jl")
+include("positioning/BoardCreation.jl")
+include("positioning/ManualPlacement.jl")
+include("positioning/AutomaticPlacement.jl")
+include("positioning/BoardLifecycle.jl")
+include("combat/CombatMatch.jl")
+include("combat/Economy.jl")
+include("combat/CombatState.jl")
+include("combat/SpecialWeapons.jl")
+include("combat/CombatFeedback.jl")
+include("combat/ComputerStrategy.jl")
+include("scoring/Scoring.jl")
