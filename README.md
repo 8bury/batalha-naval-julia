@@ -61,8 +61,7 @@ resultado não será classificado.
 
 ## Dados locais
 
-O ranking SQLite fica em `%USERPROFILE%\.batalha-naval\ranking.sqlite3` no
-Windows e em `~/.batalha-naval/ranking.sqlite3` no Arch. Defina
+O ranking SQLite fica em `data/ranking.sqlite3`, dentro do projeto. Defina
 `BATALHA_NAVAL_DATA_DIR` antes de iniciar para escolher outro diretório. Excluir
 esse arquivo apaga somente o ranking local; não há sincronização em nuvem.
 
@@ -70,8 +69,9 @@ esse arquivo apaga somente o ranking local; não há sincronização em nuvem.
 
 O launcher POSIX e o ambiente Julia são fornecidos e a suíte de domínio é
 portável. No Windows, a suíte e o smoke de abertura foram automatizados; o fluxo
-interativo completo permanece no relatório manual abaixo. No Arch, o áudio está
-indisponível nesta versão porque a reprodução usa a API nativa do Windows. A
+interativo completo permanece no relatório manual abaixo. No Arch, o áudio usa
+o primeiro reprodutor disponível entre `pw-play` (PipeWire), `aplay` (ALSA) e
+`ffplay` (FFmpeg). A
 aparência, integração com o gerenciador de janelas e disponibilidade de uma sessão
 gráfica/GPU dependem da instalação local e precisam de conferência manual. Em
 sessões mínimas, instale os drivers gráficos e bibliotecas de áudio usuais do

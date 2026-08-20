@@ -14,6 +14,7 @@ export CombatController,
        player_air_strike!,
        AirStrikeUpdate,
        elapsed_seconds,
+       match_configuration,
        match_summary,
        save_completed_result!,
        play_again
@@ -41,6 +42,7 @@ function CombatController(player::PositioningBoard, computer::PositioningBoard;
 end
 
 combat_state(controller::CombatController) = combat_state(controller.match)
+match_configuration(controller::CombatController) = controller.configuration
 combat_in_progress(controller::CombatController) = isnothing(combat_state(controller).winner)
 
 function record_timing!(controller::CombatController, valid::Bool)

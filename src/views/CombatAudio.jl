@@ -1,9 +1,10 @@
 mutable struct CombatAudio
     muted::Bool
     active_buffer::Union{Nothing, Vector{UInt8}}
+    active_playback::Any
 end
 
-CombatAudio() = CombatAudio(false, nothing)
+CombatAudio() = CombatAudio(false, nothing, nothing)
 
 function wav_tone(frequency::Float64, duration_ms::Int; noisy=false)
     sample_rate = 16_000
@@ -32,22 +33,46 @@ end
 const WATER_WAV = wav_tone(520.0, 180)
 const EXPLOSION_WAV = wav_tone(90.0, 240; noisy=true)
 
+function linux_audio_command(; which=Sys.which)
+    !isnothing(which("pw-play")) && return `pw-play -`
+    !isnothing(which("aplay")) && return `aplay -q`
+    !isnothing(which("ffplay")) && return `ffplay -nodisp -autoexit -loglevel quiet -i -`
+    return nothing
+end
+
 function stop_audio!(audio::CombatAudio)
-    Sys.iswindows() && ccall((:PlaySoundW, "winmm"), stdcall, Cint,
-                             (Ptr{Cvoid}, Ptr{Cvoid}, UInt32), C_NULL, C_NULL, 0)
+    if Sys.iswindows()
+        ccall((:PlaySoundW, "winmm"), stdcall, Cint,
+              (Ptr{Cvoid}, Ptr{Cvoid}, UInt32), C_NULL, C_NULL, 0)
+    elseif !isnothing(audio.active_playback)
+        try
+            kill(audio.active_playback)
+        catch
+            # O processo pode ter encerrado naturalmente antes do próximo som.
+        end
+    end
     audio.active_buffer = nothing
+    audio.active_playback = nothing
     return audio
 end
 
 function play_audio!(audio::CombatAudio, cue::SoundCue)
-    (audio.muted || cue == NO_SOUND || !Sys.iswindows()) && return false
+    (audio.muted || cue == NO_SOUND) && return false
+    stop_audio!(audio)
     audio.active_buffer = cue == WATER_SOUND ? WATER_WAV : EXPLOSION_WAV
-    flags = UInt32(0x0001 | 0x0002 | 0x0004) # async, no-default, memory
     buffer = audio.active_buffer
-    GC.@preserve buffer begin
-        ccall((:PlaySoundW, "winmm"), stdcall, Cint,
-              (Ptr{UInt8}, Ptr{Cvoid}, UInt32), pointer(buffer), C_NULL, flags)
+    if Sys.iswindows()
+        flags = UInt32(0x0001 | 0x0002 | 0x0004) # async, no-default, memory
+        GC.@preserve buffer begin
+            ccall((:PlaySoundW, "winmm"), stdcall, Cint,
+                  (Ptr{UInt8}, Ptr{Cvoid}, UInt32), pointer(buffer), C_NULL, flags)
+        end
+        return true
     end
+
+    command = linux_audio_command()
+    isnothing(command) && (audio.active_buffer = nothing; return false)
+    audio.active_playback = run(pipeline(command; stdin=IOBuffer(buffer)); wait=false)
     return true
 end
 

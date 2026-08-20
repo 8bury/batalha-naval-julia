@@ -1,6 +1,12 @@
 using Random
 
 @testset "terrenos especiais" begin
+    @testset "limites seguem o balanceamento de cada mapa" begin
+        @test (max_reefs(PUDDLE), max_shallow_waters(PUDDLE)) == (2, 2)
+        @test (max_reefs(LAKE), max_shallow_waters(LAKE)) == (4, 4)
+        @test (max_reefs(OCEAN), max_shallow_waters(OCEAN)) == (6, 6)
+    end
+
     @testset "sorteia quantidades independentes dentro dos limites" begin
         layout = create_terrain_layout(PUDDLE; rng=MersenneTwister(11))
 

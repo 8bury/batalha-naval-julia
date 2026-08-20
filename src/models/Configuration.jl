@@ -23,9 +23,9 @@ const SHIP_SYMBOLS = Dict(
 )
 
 const TERRAIN_LIMITS = Dict(
-    PUDDLE => TerrainLimits(1, 1),
-    LAKE => TerrainLimits(3, 3),
-    OCEAN => TerrainLimits(5, 5),
+    PUDDLE => TerrainLimits(2, 2),
+    LAKE => TerrainLimits(4, 4),
+    OCEAN => TerrainLimits(6, 6),
 )
 
 const TERRAIN_LABELS = Dict(

@@ -11,7 +11,8 @@ end
 Base.close(repository::SQLiteResultRepository) = SQLite.close(repository.db)
 
 function default_results_path()
-    base = get(ENV, "BATALHA_NAVAL_DATA_DIR", joinpath(homedir(), ".batalha-naval"))
+    project_root = normpath(joinpath(@__DIR__, "..", ".."))
+    base = get(ENV, "BATALHA_NAVAL_DATA_DIR", joinpath(project_root, "data"))
     return joinpath(base, "ranking.sqlite3")
 end
 

@@ -1,6 +1,11 @@
 using Dates
 
 @testset "persistencia SQLite e ranking por mapa" begin
+    withenv("BATALHA_NAVAL_DATA_DIR" => nothing) do
+        expected = normpath(joinpath(@__DIR__, "..", "data", "ranking.sqlite3"))
+        @test default_results_path() == expected
+    end
+
     mktempdir() do directory
         database = joinpath(directory, "dados", "ranking.sqlite3")
         repository = SQLiteResultRepository(database)
@@ -38,17 +43,22 @@ using Dates
         @test [entry.duration_seconds for entry in tied] == [20, 20, 20, 30]
         @test tied[1].completed_at < tied[2].completed_at < tied[3].completed_at
 
-        player, computer = create_match_boards(config)
-        auto_place_ships!(player)
+        player = create_positioning_board(PUDDLE)
+        computer = create_positioning_board(PUDDLE)
+        for board in (player, computer)
+            place_ship!(board, CRUISER, 1, 1, HORIZONTAL)
+            place_ship!(board, SUBMARINE, 2, 1, HORIZONTAL)
+            place_ship!(board, PATROL, 3, 1, HORIZONTAL)
+        end
         controller = CombatController(player, computer; configuration=config,
                                       repository, completion_key="controller", clock=() -> 10.0)
         @test !save_completed_result!(controller)
         @test length(top_results(repository, PUDDLE; limit=30)) == 13
-        enemy_cells = collect(Iterators.flatten(placement_cells.(computer.placements)))
-        final_cell = pop!(enemy_cells)
-        union!(controller.match.player_attacks, enemy_cells)
-        @test player_attack!(controller, final_cell...).state.winner == PLAYER
-        @test controller.result_saved
+        update = nothing
+        for cell in placement_cells(computer)
+            update = player_attack!(controller, cell...)
+        end
+        @test update.state.winner == PLAYER
         @test !save_completed_result!(controller)
         @test length(top_results(repository, PUDDLE; limit=30)) == 14
 
@@ -56,19 +66,22 @@ using Dates
         defeated_player, victorious_computer = create_match_boards(defeat_config)
         auto_place_ships!(defeated_player)
         finished_at = DateTime(2026, 2, 3, 4, 5, 6, 789)
+        clock_value = [2.0]
         defeat = CombatController(defeated_player, victorious_computer;
             configuration=defeat_config, repository, completion_key="defeat",
-            clock=() -> 12.0, completed_at=() -> finished_at)
-        player_cells = collect(Iterators.flatten(placement_cells.(defeated_player.placements)))
-        last_player_cell = pop!(player_cells)
-        for row in 1:defeated_player.dimension, column in 1:defeated_player.dimension
-            (row, column) == last_player_cell || push!(defeat.match.computer_attacks, (row, column))
+            clock=() -> clock_value[], completed_at=() -> finished_at)
+        occupied = Set(placement_cells(victorious_computer))
+        misses = [(row, column) for row in 1:10 for column in 1:10
+                  if (row, column) ∉ occupied]
+        update = player_attack!(defeat, popfirst!(misses)...)
+        clock_value[] = 12.0
+        while isnothing(update.state.winner)
+            update = computer_step!(defeat)
+            if isnothing(update.state.winner) && update.state.turn == PLAYER
+                update = player_attack!(defeat, popfirst!(misses)...)
+            end
         end
-        defeat.match.turn = COMPUTER
-        defeat.match.shop_available[COMPUTER] = false
-        defeat.started_at = 2.0
-        @test computer_step!(defeat).state.winner == COMPUTER
-        @test defeat.result_saved
+        @test update.state.winner == COMPUTER
         @test !save_completed_result!(defeat)
 
         persisted = only(top_results(repository, OCEAN; limit=20))

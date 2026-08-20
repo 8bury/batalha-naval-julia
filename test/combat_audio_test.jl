@@ -4,6 +4,9 @@ include(joinpath(@__DIR__, "..", "src", "views", "CombatAudio.jl"))
     @test WATER_WAV[1:4] == collect(codeunits("RIFF"))
     @test EXPLOSION_WAV[1:4] == collect(codeunits("RIFF"))
     @test WATER_WAV != EXPLOSION_WAV
+    fake_which(name) = name == "pw-play" ? "/usr/bin/pw-play" : nothing
+    @test linux_audio_command(; which=fake_which) == `pw-play -`
+    @test isnothing(linux_audio_command(; which=name -> nothing))
 
     audio = CombatAudio()
     set_muted!(audio, true)
@@ -12,4 +15,5 @@ include(joinpath(@__DIR__, "..", "src", "views", "CombatAudio.jl"))
     @test isnothing(audio.active_buffer)
     set_muted!(audio, false)
     @test !audio.muted
+    @test isnothing(audio.active_playback)
 end
