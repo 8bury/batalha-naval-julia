@@ -22,5 +22,3 @@ function buy_weapon!(match::CombatMatch, participant::Participant, weapon::Weapo
     match.inventories[participant][weapon] += 1
     return PurchaseResult(true, weapon, nothing)
 end
-
-"""Expõe o estado observável de uma casa sem tipos de Gtk4."""

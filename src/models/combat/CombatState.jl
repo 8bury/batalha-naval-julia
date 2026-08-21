@@ -1,3 +1,4 @@
+"""Expõe o estado observável de uma casa sem tipos de Gtk4."""
 function public_cell(match::CombatMatch, owner::Participant, row::Int, column::Int)
     board = owner == PLAYER ? match.player_board : match.computer_board
     attacks = owner == PLAYER ? match.computer_attacks : match.player_attacks

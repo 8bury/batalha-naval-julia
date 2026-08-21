@@ -1,3 +1,4 @@
+"""Indica se jogador e computador já podem iniciar a batalha."""
 battle_ready(player_board::PositioningBoard, computer_board::PositioningBoard) =
     all_ships_placed(player_board) && all_ships_placed(computer_board)
 

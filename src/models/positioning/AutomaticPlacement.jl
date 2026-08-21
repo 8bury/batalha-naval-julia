@@ -33,5 +33,3 @@ function auto_place_ships!(board::PositioningBoard; rng=Random.default_rng())
     end
     return AutoPlacementResult(true, "Frota completada automaticamente.", placed)
 end
-
-"""Indica se jogador e computador já podem iniciar a batalha."""
