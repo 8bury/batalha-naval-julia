@@ -12,7 +12,6 @@ function battle_page(window, controller::CombatController)
     page.margin_start = 24
     page.margin_end = 24
     root = scrollable_page(page)
-    push!(page, title_label("Batalha naval"))
     battle_bar = GtkBox(:h)
     battle_bar.spacing = 18
     turn_indicator = styled!(GtkLabel(""; xalign=0, hexpand=true), "battle-indicator")

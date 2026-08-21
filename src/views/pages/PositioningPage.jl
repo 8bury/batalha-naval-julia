@@ -1,9 +1,16 @@
 function positioning_page(window, controller::PositioningController)
     initial_state = positioning_state(controller)
 
-    page = configure_container!(GtkBox(:v); spacing=14)
-    page.width_request = 1180
-    page.height_request = 680
+    page = GtkBox(:v)
+    page.spacing = 14
+    page.hexpand = true
+    page.vexpand = true
+    page.halign = Gtk4.Align_FILL
+    page.valign = Gtk4.Align_FILL
+    page.margin_top = 20
+    page.margin_bottom = 20
+    page.margin_start = 24
+    page.margin_end = 24
     push!(page, title_label("Posicionamento da frota"))
     push!(
         page,
@@ -17,6 +24,8 @@ function positioning_page(window, controller::PositioningController)
     content.spacing = 26
     content.hexpand = true
     content.vexpand = true
+    content.halign = Gtk4.Align_FILL
+    content.valign = Gtk4.Align_CENTER
     push!(page, content)
 
     board_column = GtkBox(:v)
@@ -50,7 +59,7 @@ function positioning_page(window, controller::PositioningController)
 
     controls = GtkBox(:v)
     controls.spacing = 12
-    controls.width_request = 300
+    controls.width_request = 320
     controls.valign = Gtk4.Align_START
     push!(content, controls)
 
