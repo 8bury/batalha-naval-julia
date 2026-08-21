@@ -6,9 +6,13 @@
     ranking = read(joinpath(@__DIR__, "..", "src", "views", "pages", "RankingPage.jl"), String)
 
     backend_position = findfirst("ENV[\"PANGOCAIRO_BACKEND\"] = \"fc\"", launcher)
+    theme_position = findfirst("ENV[\"GTK_THEME\"] = \"Adwaita\"", launcher)
     gtk_position = findfirst("GtkApplication.jl", launcher)
 
     @test !isnothing(backend_position)
+    @test !isnothing(theme_position)
+    @test occursin("occursin(\"libadwaita\"", launcher)
+    @test occursin("mktempdir(prefix=\"batalha-naval-gtk-\")", launcher)
     @test !isnothing(gtk_position)
     if !isnothing(backend_position) && !isnothing(gtk_position)
         @test first(backend_position) < first(gtk_position)

@@ -1,9 +1,16 @@
 function battle_page(window, controller::CombatController)
     set_match_in_progress!(window, true)
     initial_state = combat_state(controller)
-    page = configure_container!(GtkBox(:v); spacing=14)
-    page.width_request = 1180
-    page.height_request = 700
+    page = GtkBox(:v)
+    page.spacing = 14
+    page.hexpand = true
+    page.vexpand = true
+    page.halign = Gtk4.Align_FILL
+    page.valign = Gtk4.Align_FILL
+    page.margin_top = 20
+    page.margin_bottom = 20
+    page.margin_start = 24
+    page.margin_end = 24
     root = scrollable_page(page)
     push!(page, title_label("Batalha naval"))
     battle_bar = GtkBox(:h)
@@ -17,8 +24,6 @@ function battle_page(window, controller::CombatController)
     sound_button = styled!(GtkButton("🔊 Sons: ligados"), "secondary-action")
     instructions_button = styled!(GtkButton("Instruções"), "secondary-action")
     sound_button.tooltip_text = "Silenciar todos os sons da partida"
-    strike_row_button = styled!(GtkButton("Linha"), "secondary-action")
-    strike_column_button = styled!(GtkButton("Coluna"), "secondary-action")
     push!(battle_bar, turn_indicator)
     push!(battle_bar, timer_indicator)
     push!(battle_bar, balance_indicator)
@@ -27,8 +32,6 @@ function battle_page(window, controller::CombatController)
     push!(battle_bar, air_strike_button)
     push!(battle_bar, sound_button)
     push!(battle_bar, instructions_button)
-    push!(battle_bar, strike_row_button)
-    push!(battle_bar, strike_column_button)
     push!(page, battle_bar)
     signal_connect(instructions_button, "clicked") do _
         show_battle_instructions(window)
@@ -60,7 +63,8 @@ function battle_page(window, controller::CombatController)
     boards = GtkBox(:h)
     boards.spacing = 28
     boards.hexpand = true
-    boards.homogeneous = true
+    boards.halign = Gtk4.Align_FILL
+    boards.valign = Gtk4.Align_CENTER
     boards_scroll = GtkScrolledWindow()
     boards_scroll[] = boards
     boards_scroll.hexpand = true
@@ -70,7 +74,7 @@ function battle_page(window, controller::CombatController)
     buttons = Dict{Participant, Matrix{Any}}()
     board_grids = Dict{Participant, BoardGrid}()
     missile_selected = Ref(false)
-    air_strike_axis = Ref{Union{Nothing, AirStrikeAxis}}(nothing)
+    air_strike_selected = Ref(false)
     fleet_labels = Dict{Participant, Any}()
     summary_shown = Ref(false)
     abandoned = Ref(false)
@@ -86,10 +90,10 @@ function battle_page(window, controller::CombatController)
             generation == shake_generation[] || return false
             step[] += 1
             if step[] <= 5
-                page.margin_start = isodd(step[]) ? 36 : 20
+                page.margin_start = isodd(step[]) ? 32 : 16
                 return true
             end
-            page.margin_start = 28
+            page.margin_start = 24
             return false
         end
         return nothing
@@ -172,13 +176,11 @@ function battle_page(window, controller::CombatController)
         missile_button.sensitive = state.turn == PLAYER && isnothing(state.winner) && state.player_inventory[MISSILE] > 0
         missile_button.sensitive || (missile_selected[] = false)
         air_strike_button.sensitive = state.turn == PLAYER && isnothing(state.winner) && state.player_inventory[AIR_STRIKE] > 0
-        air_strike_button.sensitive || (air_strike_axis[] = nothing)
-        choosing_air_strike = air_strike_button.sensitive && !isnothing(air_strike_axis[])
-        strike_row_button.visible = choosing_air_strike
-        strike_column_button.visible = choosing_air_strike
+        air_strike_button.sensitive || (air_strike_selected[] = false)
+        choosing_air_strike = air_strike_button.sensitive && air_strike_selected[]
         for index in 1:state.dimension
-            board_grids[COMPUTER].row_headers[index].sensitive = choosing_air_strike && air_strike_axis[] == STRIKE_ROW
-            board_grids[COMPUTER].column_headers[index].sensitive = choosing_air_strike && air_strike_axis[] == STRIKE_COLUMN
+            board_grids[COMPUTER].row_headers[index].sensitive = choosing_air_strike
+            board_grids[COMPUTER].column_headers[index].sensitive = choosing_air_strike
         end
         if !state.shop_available
             shop_panel.visible = false
@@ -201,7 +203,8 @@ function battle_page(window, controller::CombatController)
                 button.tooltip_text = "$(Char(Int('A') + column - 1))$row - $tooltip"
                 add_css_class(button, css_class)
                 button.sensitive = owner == COMPUTER && isnothing(state.winner) && state.turn == PLAYER &&
-                    isnothing(air_strike_axis[]) && (missile_selected[] || (cell.public_state == UNKNOWN && cell.terrain != REEF))
+                    !air_strike_selected[] &&
+                    (missile_selected[] || (cell.public_state == UNKNOWN && cell.terrain != REEF))
             end
         end
         for index in eachindex(recent_labels)
@@ -226,7 +229,7 @@ function battle_page(window, controller::CombatController)
 
     function show_air_strike_preview!(axis, index)
         clear_air_strike_preview!()
-        air_strike_axis[] == axis || return
+        air_strike_selected[] || return
         state = combat_state(controller)
         for (row, column) in air_strike_preview(initial_state.dimension, axis, index)
             cell = state.computer_cells[row, column]
@@ -271,7 +274,7 @@ function battle_page(window, controller::CombatController)
 
     signal_connect(missile_button, "clicked") do _
         missile_selected[] = !missile_selected[]
-        air_strike_axis[] = nothing
+        air_strike_selected[] = false
         clear_missile_preview!()
         status.label = missile_selected[] ?
             "Míssil selecionado - escolha o canto superior esquerdo da área 2×2." :
@@ -282,23 +285,12 @@ function battle_page(window, controller::CombatController)
 
     signal_connect(air_strike_button, "clicked") do _
         missile_selected[] = false
-        air_strike_axis[] = isnothing(air_strike_axis[]) ? STRIKE_ROW : nothing
+        air_strike_selected[] = !air_strike_selected[]
         clear_missile_preview!()
-        status.label = isnothing(air_strike_axis[]) ?
+        clear_air_strike_preview!()
+        status.label = !air_strike_selected[] ?
             "Ataque Aéreo cancelado - escolha uma coordenada para o ataque básico." :
-            "Ataque Aéreo selecionado - escolha Linha ou Coluna e confirme pelo cabeçalho inimigo."
-        render_combat!()
-    end
-
-    signal_connect(strike_row_button, "clicked") do _
-        air_strike_axis[] = STRIKE_ROW
-        status.label = "Ataque Aéreo em linha - passe pelo número e clique para confirmar."
-        render_combat!()
-    end
-
-    signal_connect(strike_column_button, "clicked") do _
-        air_strike_axis[] = STRIKE_COLUMN
-        status.label = "Ataque Aéreo em coluna - passe pela letra e clique para confirmar."
+            "Ataque Aéreo selecionado - clique em um número para atacar a linha ou em uma letra para atacar a coluna."
         render_combat!()
     end
 
@@ -324,7 +316,7 @@ function battle_page(window, controller::CombatController)
     function fire_air_strike!(axis, index)
         update = player_air_strike!(controller, axis, index)
         finish_special_attack!(update, "Ataque Aéreo") do
-            air_strike_axis[] = nothing
+            air_strike_selected[] = false
             clear_air_strike_preview!()
         end
     end
@@ -404,16 +396,19 @@ function battle_page(window, controller::CombatController)
                 (STRIKE_ROW, board_grids[COMPUTER].row_headers[index]),
                 (STRIKE_COLUMN, board_grids[COMPUTER].column_headers[index]),
             )
-                motion = GtkEventControllerMotion()
-                signal_connect(motion, "enter") do _, _, _
-                    show_air_strike_preview!(axis, index)
-                end
-                signal_connect(motion, "leave") do _
-                    clear_air_strike_preview!()
-                end
-                push!(header, motion)
-                signal_connect(header, "clicked") do _
-                    fire_air_strike!(axis, index)
+                let header_axis = axis, target_header = header
+                    motion = GtkEventControllerMotion()
+                    signal_connect(motion, "enter") do _, _, _
+                        show_air_strike_preview!(header_axis, index)
+                    end
+                    signal_connect(motion, "leave") do _
+                        clear_air_strike_preview!()
+                    end
+                    push!(target_header, motion)
+                    signal_connect(target_header, "clicked") do _
+                        air_strike_selected[] || return nothing
+                        fire_air_strike!(header_axis, index)
+                    end
                 end
             end
         end

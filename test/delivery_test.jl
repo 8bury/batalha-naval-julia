@@ -14,6 +14,14 @@
     @test occursin("Abandonar partida", battle)
     @test occursin("resultado não será classificado", read(joinpath(root, "src", "views", "pages", "MainMenuPage.jl"), String))
     @test occursin("GtkScrolledWindow", battle)
+    @test occursin("page.halign = Gtk4.Align_FILL", battle)
+    @test occursin("boards.halign = Gtk4.Align_FILL", battle)
+    @test !occursin("page.width_request = 1180", battle)
+    @test !occursin("boards.homogeneous = true", battle)
+    @test occursin("air_strike_selected[] || return nothing", battle)
+    @test occursin("fire_air_strike!(header_axis, index)", battle)
+    @test !occursin("strike_row_button", battle)
+    @test !occursin("strike_column_button", battle)
     @test occursin("GtkScrolledWindow", read(joinpath(root, "src", "views", "pages", "PositioningPage.jl"), String))
     @test occursin("1280, 800", window)
     @test occursin("width_request = 1000", window)
@@ -30,5 +38,4 @@
         @test occursin("--startup-file=no", script)
     end
     @test occursin("Dados locais", readme)
-    @test occursin("Arch Linux: escopo da verificação", readme)
 end

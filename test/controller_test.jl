@@ -4,6 +4,7 @@ using BatalhaNaval.Application
 @testset "controllers sem Gtk" begin
     loaded_package_names = (package.name for package in keys(Base.loaded_modules))
     @test "Gtk4" ∉ loaded_package_names
+    @test BatalhaNaval.player_air_strike! === BatalhaNaval.Application.player_air_strike!
 
     setup = SetupController()
     @test !submit_player_name!(setup, "x").valid
